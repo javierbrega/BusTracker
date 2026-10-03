@@ -42,4 +42,15 @@ Vite genera el sitio listo para publicar en `dist`.
 
 Las variables con prefijo `VITE_` se incluyen en el código del navegador. La clave anon de Supabase es pública por diseño: protege las tablas con políticas RLS y no configures una clave `service_role` como variable `VITE_`.
 
-La función opcional `supabase/functions/keepalive` no se despliega junto con la web en Vercel; requiere un despliegue separado en Supabase.
+## Mantener Supabase activo con UptimeRobot
+
+El endpoint `GET /api/keepalive` se despliega como una función de Vercel y hace una consulta de solo lectura a `routes`. Para configurarlo:
+
+1. En Vercel, agrega la variable `KEEPALIVE_TOKEN` con un valor aleatorio largo y guárdala para **Production**. No la subas a GitHub.
+2. Haz un nuevo deployment de producción para que la función reciba esa variable.
+3. En UptimeRobot, crea o edita un monitor **HTTP(s)** con esta URL, sustituyendo el token por el mismo valor guardado en Vercel: `https://bustracker-ecru.vercel.app/api/keepalive?token=TU_TOKEN`.
+4. Usa un intervalo disponible de hasta 24 horas. La función responde `200` solo si logra consultar Supabase; las solicitudes no autorizadas y los errores de base responden con códigos distintos de `200`.
+
+El endpoint reutiliza `SUPABASE_URL` y `SUPABASE_ANON_KEY` si están configuradas en Vercel; si no, usa `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`. Nunca uses una clave `service_role`.
+
+La función opcional `supabase/functions/keepalive` es una alternativa independiente y requiere un despliegue separado en Supabase.
