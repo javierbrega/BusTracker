@@ -1,7 +1,10 @@
 import { timingSafeEqual } from 'node:crypto'
 
-const sendJson = (response, status, body) => {
+const sendJson = (request, response, status, body) => {
   response.setHeader('Cache-Control', 'no-store')
+  if (request.method === 'HEAD') {
+    return response.status(status).end()
+  }
   return response.status(status).json(body)
 }
 
@@ -16,27 +19,27 @@ const matchesToken = (supplied, expected) => {
 }
 
 export default async function handler(request, response) {
-  if (request.method !== 'GET') {
-    response.setHeader('Allow', 'GET')
-    return sendJson(response, 405, { error: 'Method not allowed' })
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    response.setHeader('Allow', 'GET, HEAD')
+    return sendJson(request, response, 405, { error: 'Method not allowed' })
   }
 
   const expectedToken = process.env.KEEPALIVE_TOKEN
   if (!expectedToken) {
-    return sendJson(response, 503, { error: 'Keepalive is not configured' })
+    return sendJson(request, response, 503, { error: 'Keepalive is not configured' })
   }
 
   const requestUrl = new URL(request.url, `https://${request.headers.host ?? 'localhost'}`)
   const suppliedToken = requestUrl.searchParams.get('token') ?? ''
   if (!suppliedToken || !matchesToken(suppliedToken, expectedToken)) {
-    return sendJson(response, 401, { error: 'Unauthorized' })
+    return sendJson(request, response, 401, { error: 'Unauthorized' })
   }
 
   const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL
   const anonKey = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY
   if (!supabaseUrl || !anonKey) {
     console.error('Keepalive is missing Supabase environment variables.')
-    return sendJson(response, 503, { error: 'Keepalive is not configured' })
+    return sendJson(request, response, 503, { error: 'Keepalive is not configured' })
   }
 
   let databaseUrl
@@ -44,12 +47,12 @@ export default async function handler(request, response) {
     databaseUrl = new URL(supabaseUrl)
   } catch (error) {
     console.error('Keepalive has an invalid Supabase URL:', error)
-    return sendJson(response, 503, { error: 'Keepalive is not configured' })
+    return sendJson(request, response, 503, { error: 'Keepalive is not configured' })
   }
 
   if (databaseUrl.protocol !== 'https:' || !databaseUrl.hostname.endsWith('.supabase.co')) {
     console.error('Keepalive Supabase URL must use an https://*.supabase.co host.')
-    return sendJson(response, 503, { error: 'Keepalive is not configured' })
+    return sendJson(request, response, 503, { error: 'Keepalive is not configured' })
   }
 
   try {
@@ -66,12 +69,12 @@ export default async function handler(request, response) {
 
     if (!databaseResponse.ok) {
       console.error(`Keepalive Supabase query failed with HTTP ${databaseResponse.status}.`)
-      return sendJson(response, 502, { error: 'Database check failed' })
+      return sendJson(request, response, 502, { error: 'Database check failed' })
     }
 
-    return sendJson(response, 200, { ok: true })
+    return sendJson(request, response, 200, { ok: true })
   } catch (error) {
     console.error('Keepalive Supabase request failed:', error)
-    return sendJson(response, 502, { error: 'Database check failed' })
+    return sendJson(request, response, 502, { error: 'Database check failed' })
   }
 }

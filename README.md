@@ -44,7 +44,7 @@ Las variables con prefijo `VITE_` se incluyen en el código del navegador. La cl
 
 ## Mantener Supabase activo con UptimeRobot
 
-El endpoint `GET /api/keepalive` se despliega como una función de Vercel y hace una consulta de solo lectura a `routes`. Para configurarlo:
+El endpoint `GET` o `HEAD /api/keepalive` se despliega como una función de Vercel y hace una consulta de solo lectura a `routes`. Acepta ambos métodos porque los monitores HTTP pueden usar `HEAD`. Para configurarlo:
 
 1. En Vercel, agrega la variable `KEEPALIVE_TOKEN` con un valor aleatorio largo y guárdala para **Production**. No la subas a GitHub.
 2. Haz un nuevo deployment de producción para que la función reciba esa variable.
