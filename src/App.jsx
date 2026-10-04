@@ -7,8 +7,7 @@ const RouteMap = lazy(() => import('./components/RouteMap'))
 const NAME_STORAGE_KEY = 'bustracker:user-name'
 const THEME_STORAGE_KEY = 'bustracker:dark-mode'
 const GOOGLE_FORM_URL =
-  import.meta.env.VITE_GOOGLE_FORM_URL?.trim() || 'https://forms.google.com/'
-const IS_PROVISIONAL_GOOGLE_FORM_URL = !import.meta.env.VITE_GOOGLE_FORM_URL?.trim()
+  'https://docs.google.com/forms/d/e/1FAIpQLSew7sG1-3sVYjK2Bu4YYm4RxsoRtikXyAlpvsCM3ENMX5PupQ/viewform?usp=header'
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
 
@@ -975,11 +974,9 @@ export default function App() {
               </div>
               <div className="feedback-actions">
                 <span>
-                  {IS_PROVISIONAL_GOOGLE_FORM_URL
-                    ? 'Enlace provisorio; lo cambiaremos al crear la encuesta.'
-                    : HAS_GOOGLE_FORM_URL
-                      ? 'Este enlace abre la encuesta de Google.'
-                      : 'Configura un enlace válido de Google Forms.'}
+                  {HAS_GOOGLE_FORM_URL
+                    ? 'Este enlace abre la encuesta de Google.'
+                    : 'El enlace de Google Forms no es válido.'}
                 </span>
                 <a
                   href={HAS_GOOGLE_FORM_URL ? GOOGLE_FORM_URL : undefined}
@@ -992,7 +989,7 @@ export default function App() {
                   className={!HAS_GOOGLE_FORM_URL ? 'feedback-submit is-disabled' : 'feedback-submit'}
                 >
                   <span aria-hidden="true">↗</span>
-                  {IS_PROVISIONAL_GOOGLE_FORM_URL ? 'Abrir Google Forms' : 'Responder encuesta'}
+                  Responder encuesta
                 </a>
               </div>
             </section>

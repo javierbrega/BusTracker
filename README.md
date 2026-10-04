@@ -20,11 +20,10 @@ Completa `.env.local` con las variables de entorno de Supabase:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_GOOGLE_FORM_URL` (opcional): enlace publicado del formulario de Google. Por ahora, si no se define, se usa el enlace provisorio `https://forms.google.com/`.
 
 Sin las variables de Supabase, la aplicación usa horarios de demostración de la línea 520. Nunca agregues `.env.local` al repositorio ni uses una clave `service_role` en el frontend.
 
-Al ingresar por primera vez, la app solicita un nombre y lo guarda localmente en ese dispositivo. El selector de tema claro/oscuro también guarda su preferencia. Cuando esté listo el formulario, reemplaza `VITE_GOOGLE_FORM_URL` por su enlace público de Google Forms (dominios `docs.google.com` o `forms.gle`) y vuelve a desplegar.
+Al ingresar por primera vez, la app solicita un nombre y lo guarda localmente en ese dispositivo. El selector de tema claro/oscuro también guarda su preferencia. La encuesta enlaza al formulario público de Google Forms.
 
 ## Catálogo de Iselín y carga de datos
 
@@ -71,7 +70,7 @@ Vite genera el sitio listo para publicar en `dist`.
 1. Importa este repositorio desde GitHub en Vercel.
 2. Usa la carpeta raíz del repositorio como **Root Directory**.
 3. Vercel detecta Vite; los valores son `npm run build` para **Build Command** y `dist` para **Output Directory**.
-4. En **Settings → Environment Variables**, agrega `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` y, si usarás la encuesta, `VITE_GOOGLE_FORM_URL` para los entornos que vayas a desplegar.
+4. En **Settings → Environment Variables**, agrega `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY` para los entornos que vayas a desplegar.
 5. Despliega o vuelve a desplegar el proyecto.
 
 Las variables con prefijo `VITE_` se incluyen en el código del navegador. La clave anon de Supabase es pública por diseño: protege las tablas con políticas RLS y no configures una clave `service_role` como variable `VITE_`.
