@@ -388,7 +388,7 @@ export default function App() {
         <header className="app-header">
           <div className="brand-lockup">
             <div>
-              <h1>¡Bienvenido, {userName}!</h1>
+              <h1>¡Hola, {userName}!</h1>
               <p>Tu viaje, a tiempo</p>
             </div>
           </div>
