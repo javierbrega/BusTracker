@@ -625,9 +625,28 @@ export default function App() {
                     className="nearby-button nearby-home-button"
                     onClick={findNearbyLines}
                     disabled={nearbyStatus === 'loading'}
+                    aria-busy={nearbyStatus === 'loading'}
                   >
-                    <span aria-hidden="true">⌖</span>
-                    {nearbyStatus === 'loading' ? 'Buscando…' : 'Cerca de mí'}
+                    <span className="nearby-home-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <circle cx="12" cy="12" r="8.5" />
+                        <circle cx="12" cy="12" r="2.5" />
+                        <path d="M12 1.5v3M12 19.5v3M1.5 12h3m15 0h3" />
+                      </svg>
+                    </span>
+                    <span className="nearby-home-copy">
+                      <strong>
+                        {nearbyStatus === 'loading'
+                          ? 'Buscando recorridos cercanos…'
+                          : 'Buscar recorridos cercanos'}
+                      </strong>
+                      <small>
+                        {nearbyStatus === 'loading'
+                          ? 'Consultando tu ubicación'
+                          : 'Trazados publicados a menos de 500 m'}
+                      </small>
+                    </span>
+                    <span className="nearby-home-arrow" aria-hidden="true">→</span>
                   </button>
                 </div>
                 {selectedRouteGroup?.alert_message && (

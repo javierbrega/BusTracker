@@ -195,14 +195,87 @@ input:focus-visible {
 
 .route-catalog-controls {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: end;
-  gap: 9px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 11px;
 }
 
 .nearby-home-button {
-  min-height: 47px;
+  display: flex;
+  width: 100%;
+  min-height: 62px;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 11px;
+  border: 1px solid #cfe5d9;
+  border-radius: 15px;
+  background: #edf6f0;
+  padding: 9px 13px;
+  color: #195d48;
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.nearby-home-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: #a9d2bd;
+  background: #e5f2e9;
+}
+
+.nearby-home-button:disabled {
+  opacity: 1;
+}
+
+.nearby-home-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 12px;
+  background: #d7ecde;
+  color: #237454;
+}
+
+.nearby-home-icon svg {
+  width: 21px;
+  height: 21px;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.nearby-home-copy {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.nearby-home-copy strong {
+  overflow: hidden;
+  font-size: 12px;
+  font-weight: 750;
+  text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.nearby-home-copy small {
+  color: #688579;
+  font-size: 10px;
+  line-height: 1.3;
+}
+
+.nearby-home-arrow {
+  flex: 0 0 auto;
+  color: #579174;
+  font-size: 18px;
+  transition: transform 160ms ease;
+}
+
+.nearby-home-button:hover:not(:disabled) .nearby-home-arrow {
+  transform: translateX(2px);
 }
 
 .nearby-home-results {
@@ -1205,6 +1278,25 @@ details[open] .details-chevron {
   background: #1b694f;
 }
 
+.nearby-button.nearby-home-button {
+  min-height: 62px;
+  border: 1px solid #cfe5d9;
+  background: #edf6f0;
+  padding: 9px 13px;
+  color: #195d48;
+  font-size: inherit;
+  font-weight: 400;
+}
+
+.nearby-button.nearby-home-button:hover:not(:disabled) {
+  border-color: #a9d2bd;
+  background: #e5f2e9;
+}
+
+.nearby-button.nearby-home-button:disabled {
+  opacity: 1;
+}
+
 .nearby-button:disabled {
   cursor: wait;
   opacity: 0.7;
@@ -2011,6 +2103,27 @@ input:focus-visible {
 .app-background[data-theme='dark'] .route-option.is-selected .route-names > span,
 .app-background[data-theme='dark'] .route-option.is-selected .route-arrow {
   color: #e4e8ff;
+}
+
+.app-background[data-theme='dark'] .nearby-home-button {
+  border-color: #345445;
+  background: #24372f;
+  color: #a7e0bd;
+}
+
+.app-background[data-theme='dark'] .nearby-home-button:hover:not(:disabled) {
+  border-color: #47725d;
+  background: #2b4237;
+}
+
+.app-background[data-theme='dark'] .nearby-home-icon {
+  background: #355544;
+  color: #a7e0bd;
+}
+
+.app-background[data-theme='dark'] .nearby-home-copy small,
+.app-background[data-theme='dark'] .nearby-home-arrow {
+  color: #9eb9a8;
 }
 
 .app-background[data-theme='dark'] .route-names strong,
