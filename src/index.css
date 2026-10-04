@@ -12,6 +12,10 @@
   font-weight: 400;
 }
 
+.route-map-header .language-switcher {
+  justify-self: end;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1401,6 +1405,20 @@ details[open] .details-chevron {
   color: #f0f1f4;
 }
 
+.map-dark .language-switcher {
+  border-color: #444956;
+  background: #343842;
+}
+
+.map-dark .language-switcher button {
+  color: #c0c4ce;
+}
+
+.map-dark .language-switcher button[aria-pressed='true'] {
+  background: #22252c;
+  color: #f0f1f4;
+}
+
 .map-dark .map-route-description {
   color: #b2b7c2;
 }
@@ -1436,7 +1454,7 @@ details[open] .details-chevron {
 @media (max-width: 560px) {
   .route-map-header {
     min-height: 58px;
-    grid-template-columns: 72px minmax(0, 1fr) 12px;
+    grid-template-columns: 72px minmax(0, 1fr) 80px;
     padding: 7px 10px;
   }
 
@@ -1863,17 +1881,39 @@ input:focus-visible {
   flex-direction: column;
   justify-content: space-between;
   overflow: hidden;
-  background-image:
-    linear-gradient(180deg, rgba(10, 11, 13, 0.18) 0%, rgba(10, 11, 13, 0.05) 30%, rgba(10, 11, 13, 0.88) 68%, #101114 100%),
-    url('/bus-hero.png');
-  background-position: center;
-  background-size: cover;
+  background: linear-gradient(
+    180deg,
+    #76505a 0%,
+    #51414c 18%,
+    #302d39 32%,
+    #1e2028 43%,
+    #101114 56%
+  );
   padding: max(18px, env(safe-area-inset-top)) 20px max(26px, env(safe-area-inset-bottom));
   color: #fff;
 }
 
+.welcome-hero-image {
+  display: block;
+  position: absolute;
+  inset: 0 0 auto;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  -webkit-mask-image: linear-gradient(to bottom, #000 68%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 68%, transparent 100%);
+  pointer-events: none;
+}
+
 .welcome-topline,
-.header-actions {
+.welcome-content {
+  position: relative;
+  z-index: 1;
+}
+
+.welcome-topline,
+.header-actions,
+.welcome-controls {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1907,8 +1947,74 @@ input:focus-visible {
   transition: transform 160ms ease, background 160ms ease;
 }
 
+.language-switcher {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 2px;
+  border: 1px solid #e3e5e8;
+  border-radius: 999px;
+  background: #f2f4f5;
+  padding: 3px;
+}
+
+.language-switcher button {
+  display: inline-flex;
+  min-width: 35px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  padding: 0 5px;
+  color: #596274;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.language-switcher button[aria-pressed='true'] {
+  background: #fff;
+  color: #263a34;
+  box-shadow: 0 1px 3px rgba(25, 39, 33, 0.15);
+}
+
+.language-flag {
+  width: 18px;
+  height: 12px;
+  flex: 0 0 18px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(25, 39, 33, 0.14);
+}
+
+.language-switcher button:focus-visible {
+  outline: 2px solid #2674e8;
+  outline-offset: 2px;
+}
+
 .theme-toggle:hover {
   transform: translateY(-1px);
+}
+
+.welcome-controls {
+  justify-content: flex-end;
+}
+
+.welcome-controls .language-switcher {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(15, 17, 18, 0.35);
+  backdrop-filter: blur(12px);
+}
+
+.welcome-controls .language-switcher button {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.welcome-controls .language-switcher button[aria-pressed='true'] {
+  background: rgba(255, 255, 255, 0.95);
+  color: #263a34;
 }
 
 .welcome-topline .theme-toggle {
@@ -2210,6 +2316,20 @@ input:focus-visible {
 .app-background[data-theme='dark'] .favorite-toggle,
 .app-background[data-theme='dark'] .name-edit {
   color: #c0c4ce;
+}
+
+.app-background[data-theme='dark'] .language-switcher {
+  border-color: #414650;
+  background: #292c34;
+}
+
+.app-background[data-theme='dark'] .language-switcher button {
+  color: #c0c4ce;
+}
+
+.app-background[data-theme='dark'] .language-switcher button[aria-pressed='true'] {
+  background: #414650;
+  color: #f0f1f4;
 }
 
 .app-background[data-theme='dark'] .feedback-icon {

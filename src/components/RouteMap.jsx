@@ -1,14 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
+import LanguageSwitcher from './LanguageSwitcher'
 import { estimatedRoutes } from '../data/estimatedRoutes'
+import { translations } from '../lib/translations'
 
 const NEARBY_RADIUS_METERS = 500
-const routeNames = {
-  '520A': 'San Rafael hacia Monte Comán',
-  '520B': 'Monte Comán hacia San Rafael',
-}
-
 const distanceToRoute = (position, coordinates) => {
   const metersPerLatitudeDegree = 111_132
   const metersPerLongitudeDegree =
@@ -44,20 +41,28 @@ const distanceToRoute = (position, coordinates) => {
 
 const getGeolocationError = (error) => {
   if (error.code === 1) {
-    return 'No tenemos permiso para acceder a tu ubicación. Puedes habilitarlo desde el navegador.'
+    return 'locationPermission'
   }
   if (error.code === 2) {
-    return 'No pudimos obtener tu ubicación. Comprueba el GPS e inténtalo otra vez.'
+    return 'locationUnavailable'
   }
   if (error.code === 3) {
-    return 'La solicitud de ubicación tardó demasiado. Inténtalo otra vez.'
+    return 'locationTimedOut'
   }
-  return 'No se pudo obtener tu ubicación.'
+  return 'locationFailed'
 }
 
-export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
+export default function RouteMap({
+  selectedRoute,
+  onSelectRoute,
+  isDarkMode,
+  language,
+  onLanguageChange,
+}) {
+  const t = translations[language]
   const mapElement = useRef(null)
   const mapInstance = useRef(null)
+  const zoomControl = useRef(null)
   const routeLayers = useRef({})
   const endpointLayer = useRef(null)
   const userMarker = useRef(null)
@@ -71,7 +76,7 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
       attributionControl: true,
     }).setView([-34.64, -68.1], 9)
 
-    L.control.zoom({ position: 'bottomright' }).addTo(map)
+    zoomControl.current = L.control.zoom({ position: 'bottomright' }).addTo(map)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution:
@@ -99,8 +104,15 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
     return () => {
       map.remove()
       mapInstance.current = null
+      zoomControl.current = null
     }
   }, [])
+
+  useEffect(() => {
+    const container = zoomControl.current?.getContainer()
+    container?.querySelector('.leaflet-control-zoom-in')?.setAttribute('title', t.zoomIn)
+    container?.querySelector('.leaflet-control-zoom-out')?.setAttribute('title', t.zoomOut)
+  }, [language, t.zoomIn, t.zoomOut])
 
   useEffect(() => {
     const map = mapInstance.current
@@ -125,10 +137,10 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
 
     endpointLayer.current.clearLayers()
     const endpoints = [
-      { coordinates: route.coordinates[0], label: `Inicio · ${route.start}` },
+      { coordinates: route.coordinates[0], label: `${t.startLabel} · ${route.start}` },
       {
         coordinates: route.coordinates[route.coordinates.length - 1],
-        label: `Fin · ${route.end}`,
+        label: `${t.endLabel} · ${route.end}`,
       },
     ]
 
@@ -143,12 +155,16 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
         .bindTooltip(label, { direction: 'top', offset: [0, -8] })
         .addTo(endpointLayer.current)
     })
-  }, [selectedRoute])
+  }, [language, selectedRoute, t])
+
+  useEffect(() => {
+    userMarker.current?.setTooltipContent(t.currentLocation)
+  }, [language, t])
 
   const findNearbyRoutes = () => {
     if (!window.isSecureContext || !navigator.geolocation) {
       setLocationStatus('error')
-      setLocationMessage('La ubicación requiere una conexión segura y un navegador compatible.')
+      setLocationMessage('secureLocationRequired')
       return
     }
 
@@ -176,7 +192,7 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
         setLocationMessage(
           distances.some(({ distance }) => distance <= NEARBY_RADIUS_METERS)
             ? ''
-            : 'No encontramos una línea 520 a menos de 500 m del trazado estimado.',
+            : 'noEstimatedRouteNearby',
         )
 
         const map = mapInstance.current
@@ -191,7 +207,7 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
             fillColor: '#2674e8',
             fillOpacity: 1,
           })
-            .bindTooltip('Tu ubicación', { direction: 'top', offset: [0, -8] })
+            .bindTooltip(t.currentLocation, { direction: 'top', offset: [0, -8] })
             .addTo(map)
         }
       },
@@ -206,19 +222,24 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
   return (
     <main className={`route-map-page ${isDarkMode ? 'map-dark' : ''}`}>
       <header className="route-map-header">
-        <a className="map-back-link" href="/" aria-label="Volver a los horarios">
+        <a className="map-back-link" href="/" aria-label={t.mapBack}>
           <span aria-hidden="true">←</span>
-          Horarios
+        {t.mapBack}
         </a>
         <div className="map-title">
-          <span>MAPA ORIENTATIVO</span>
-          <h1>Recorrido de la línea 520</h1>
+        <span>{t.mapEyebrow}</span>
+        <h1>{t.mapTitle}</h1>
         </div>
-        <span className="map-header-spacer" aria-hidden="true" />
+        <LanguageSwitcher
+        language={language}
+        onChange={onLanguageChange}
+        labels={t}
+        className="map-language-switcher"
+        />
       </header>
 
-      <section className="route-map-controls" aria-label="Opciones del mapa">
-        <div className="map-route-switch" role="group" aria-label="Sentido del recorrido">
+      <section className="route-map-controls" aria-label={t.mapOptions}>
+        <div className="map-route-switch" role="group" aria-label={t.routeDirection}>
           {Object.keys(estimatedRoutes).map((code) => (
             <button
               key={code}
@@ -232,7 +253,7 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
           ))}
         </div>
         <p className="map-route-description">
-          {routeNames[selectedRoute]} · vía Goudge y La Llave
+          {selectedRoute === '520A' ? t.route520A : t.route520B} · {t.via} Goudge {t.and} La Llave
         </p>
         <button
           type="button"
@@ -242,8 +263,8 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
         >
           <span aria-hidden="true">⌖</span>
           {locationStatus === 'loading'
-            ? 'Buscando ubicación…'
-            : 'Cerca de mí'}
+            ? t.searchingLocation
+            : t.nearbyMe}
         </button>
       </section>
 
@@ -251,13 +272,15 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
         className="route-map-canvas"
         ref={mapElement}
         role="region"
-        aria-label="Mapa estimado del recorrido 520 entre San Rafael y Monte Comán"
+        aria-label={t.mapRouteAria}
       />
 
       <aside className="route-map-info">
         {locationStatus === 'ready' && nearbyRoutes.length > 0 && (
           <div className="nearby-results" role="status">
-            <strong>Líneas 520 cercanas al trazado estimado:</strong>
+            <strong>
+              {nearbyRoutes.length === 1 ? t.mapNearby : t.mapNearbyPlural}
+            </strong>
             {nearbyRoutes.map(({ code, distance }) => (
               <button
                 key={code}
@@ -265,7 +288,7 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
                 onClick={() => onSelectRoute(code)}
                 className={code === selectedRoute ? 'nearby-line-selected' : ''}
               >
-                {code} · a {distance} m
+                {code} · {t.distanceAway.replace('{distance}', distance)}
               </button>
             ))}
           </div>
@@ -275,14 +298,11 @@ export default function RouteMap({ selectedRoute, onSelectRoute, isDarkMode }) {
             className={`map-location-message ${locationStatus === 'error' ? 'map-location-error' : ''}`}
             role={locationStatus === 'error' ? 'alert' : 'status'}
           >
-            {locationMessage}
+            {t[locationMessage] ?? locationMessage}
           </p>
         )}
         <p className="map-estimate-note">
-          El trazado es estimado y no representa la ruta oficial ni la ubicación
-          en vivo del colectivo. La app solo solicita tu ubicación si pulsas
-          «Cerca de mí»; no la guarda. El mapa carga las teselas de
-          OpenStreetMap.
+          {t.estimatedRoute}
         </p>
       </aside>
     </main>

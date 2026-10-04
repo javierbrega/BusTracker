@@ -1,11 +1,15 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
+import LanguageSwitcher from './components/LanguageSwitcher'
 import { supabase } from './lib/supabase'
 import { findNearbyRouteGroups } from './lib/routeProximity'
+import { getLocalizedServiceDescription, translations } from './lib/translations'
 
 const RouteMap = lazy(() => import('./components/RouteMap'))
 
 const NAME_STORAGE_KEY = 'bustracker:user-name'
 const THEME_STORAGE_KEY = 'bustracker:dark-mode'
+const LANGUAGE_STORAGE_KEY = 'bustracker:language'
+const ENGLISH_SEASONS = { VERANO: 'SUMMER', INVIERNO: 'WINTER' }
 const GOOGLE_FORM_URL =
   'https://docs.google.com/forms/d/e/1FAIpQLSew7sG1-3sVYjK2Bu4YYm4RxsoRtikXyAlpvsCM3ENMX5PupQ/viewform?usp=header'
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
@@ -26,6 +30,15 @@ const loadDarkMode = () => {
   } catch (error) {
     console.error('No se pudo leer la preferencia de tema:', error)
     return false
+  }
+}
+
+const loadLanguage = () => {
+  try {
+    return window.localStorage.getItem(LANGUAGE_STORAGE_KEY) === 'en' ? 'en' : 'es'
+  } catch (error) {
+    console.error('No se pudo leer el idioma guardado:', error)
+    return 'es'
   }
 }
 
@@ -145,22 +158,26 @@ const getUpcomingDepartures = (trips, selectedStop, destinationStop, now, count 
   return upcoming.sort((first, second) => first.departure - second.departure).slice(0, count)
 }
 
-const formatDayLabel = (date, now) => {
-  if (date.toDateString() === now.toDateString()) return 'Hoy'
+const formatDayLabel = (date, now, labels, language) => {
+  if (date.toDateString() === now.toDateString()) return labels.today
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
-  if (date.toDateString() === tomorrow.toDateString()) return 'Mañana'
-  return date.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'short' })
+  if (date.toDateString() === tomorrow.toDateString()) return labels.tomorrow
+  return date.toLocaleDateString(language === 'en' ? 'en-US' : 'es-AR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'short',
+  })
 }
 
-const getTimeUntil = (date, now) => {
+const getTimeUntil = (date, now, labels) => {
   const minutes = Math.max(0, Math.ceil((date.getTime() - now.getTime()) / 60_000))
-  if (minutes < 1) return 'Programado ahora'
-  if (minutes < 60) return `En ${minutes} min`
+  if (minutes < 1) return labels.now
+  if (minutes < 60) return `${labels.in} ${minutes} ${labels.minute}`
   const hours = Math.floor(minutes / 60)
   const remainingMinutes = minutes % 60
   return remainingMinutes
-    ? `En ${hours} h ${remainingMinutes} min`
-    : `En ${hours} h`
+    ? `${labels.in} ${hours} ${labels.hour} ${remainingMinutes} ${labels.minute}`
+    : `${labels.in} ${hours} ${labels.hour}`
 }
 
 const loadFavoriteRoutes = () => {
@@ -178,6 +195,7 @@ export default function App() {
   const [nameInput, setNameInput] = useState(userName)
   const [showWelcomeScreen, setShowWelcomeScreen] = useState(!userName)
   const [isDarkMode, setIsDarkMode] = useState(loadDarkMode)
+  const [language, setLanguage] = useState(loadLanguage)
   const [isMapPage] = useState(
     () => new URLSearchParams(window.location.search).get('vista') === 'mapa',
   )
@@ -200,6 +218,7 @@ export default function App() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [connectionError, setConnectionError] = useState('')
   const [now, setNow] = useState(() => new Date())
+  const t = translations[language]
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000)
@@ -244,9 +263,7 @@ export default function App() {
       } catch (error) {
         console.error('Error cargando el catálogo de recorridos:', error)
         if (!cancelled) {
-          setCatalogError(
-            'No pudimos cargar todas las líneas. Puedes seguir consultando los recorridos disponibles.',
-          )
+          setCatalogError('catalogPartialError')
         }
       }
     }
@@ -295,7 +312,7 @@ export default function App() {
       } catch (error) {
         console.error('Error cargando horarios:', error)
         if (!cancelled) {
-          setConnectionError(error.message || 'No se pudieron cargar los horarios.')
+          setConnectionError(error.message || 'scheduleLoadFailed')
           setTrips([])
         }
       } finally {
@@ -353,15 +370,24 @@ export default function App() {
   const routePreviewStops = nextStopTimes
     .map((stopTime, index) => ({ stopTime, index }))
     .filter(({ index }) => Math.abs(index - selectedStopIndex) <= 1)
-  const serviceDaysLabel = nextDeparture
+  const rawServiceDaysLabel = nextDeparture
     ? nextDeparture.trip.service_description ||
       (nextDeparture.trip.service_days?.length === 5
         ? 'Lunes a viernes'
         : 'días de servicio')
     : 'Lunes a viernes'
+  const serviceDaysLabel =
+    rawServiceDaysLabel === 'Lunes a viernes' && language === 'en'
+      ? t.weekdays
+      : getLocalizedServiceDescription(rawServiceDaysLabel, language)
   const hasSpecialServiceCalendar = /feriad|receso|apertura|temporada/i.test(
-    serviceDaysLabel,
+    rawServiceDaysLabel,
   )
+  const serviceSeason = nextDeparture?.trip.season
+  const serviceSeasonLabel =
+    language === 'en' && serviceSeason
+      ? ENGLISH_SEASONS[serviceSeason.toUpperCase()] ?? serviceSeason
+      : serviceSeason
   const handleNameSubmit = (event) => {
     event.preventDefault()
     const nextName = nameInput.trim()
@@ -371,7 +397,7 @@ export default function App() {
       window.localStorage.setItem(NAME_STORAGE_KEY, nextName)
     } catch (error) {
       console.error('No se pudo guardar el nombre:', error)
-      window.alert('No se pudo guardar tu nombre en este dispositivo.')
+      window.alert(t.nameSaveError)
     }
     setUserName(nextName)
     setShowWelcomeScreen(false)
@@ -383,9 +409,19 @@ export default function App() {
       window.localStorage.setItem(THEME_STORAGE_KEY, String(nextDarkMode))
     } catch (error) {
       console.error('No se pudo guardar la preferencia de tema:', error)
-      window.alert('No se pudo guardar el tema en este dispositivo.')
+      window.alert(t.themeSaveError)
     }
     setIsDarkMode(nextDarkMode)
+  }
+
+  const changeLanguage = (nextLanguage) => {
+    try {
+      window.localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage)
+    } catch (error) {
+      console.error('No se pudo guardar el idioma:', error)
+      window.alert(translations[nextLanguage].languageSaveError)
+    }
+    setLanguage(nextLanguage)
   }
 
   const selectRoute = (route) => {
@@ -399,15 +435,13 @@ export default function App() {
   const findNearbyLines = () => {
     if (!routeCatalog.length) {
       setNearbyStatus('error')
-      setNearbyMessage('El catálogo de recorridos todavía no está disponible.')
+      setNearbyMessage('nearbyCatalogUnavailable')
       setNearbyLines([])
       return
     }
     if (!window.isSecureContext || !navigator.geolocation) {
       setNearbyStatus('error')
-      setNearbyMessage(
-        'La ubicación requiere una conexión segura y un navegador compatible.',
-      )
+      setNearbyMessage('secureLocationRequired')
       setNearbyLines([])
       return
     }
@@ -433,29 +467,23 @@ export default function App() {
           )
           setNearbyLines(matches.slice(0, 5))
           setNearbyStatus('ready')
-          setNearbyMessage(
-            matches.length
-              ? 'Recorridos publicados a menos de 500 m de tu ubicación:'
-              : 'No encontramos recorridos publicados a menos de 500 m. La cobertura puede variar según la información disponible.',
-          )
+          setNearbyMessage(matches.length ? 'nearbyFound' : 'nearbyNone')
         } catch (error) {
           console.error('Error buscando recorridos cercanos:', error)
           setNearbyStatus('error')
-          setNearbyMessage(
-            'No pudimos consultar los trazados cercanos. Inténtalo de nuevo más tarde.',
-          )
+          setNearbyMessage('nearbyLookupFailed')
         }
       },
       (error) => {
         setNearbyStatus('error')
         setNearbyMessage(
           error.code === 1
-            ? 'No tenemos permiso para acceder a tu ubicación. Puedes habilitarlo desde el navegador.'
+            ? 'locationPermission'
             : error.code === 2
-              ? 'No pudimos obtener tu ubicación. Comprueba el GPS e inténtalo otra vez.'
+              ? 'locationUnavailable'
               : error.code === 3
-                ? 'La solicitud de ubicación tardó demasiado. Inténtalo otra vez.'
-                : 'No se pudo obtener tu ubicación.',
+                ? 'locationTimedOut'
+                : 'locationFailed',
         )
       },
       { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 },
@@ -475,7 +503,7 @@ export default function App() {
       setFavorites(nextFavorites)
     } catch (error) {
       console.error('No se pudo guardar la parada favorita:', error)
-      window.alert('No se pudo guardar esta parada en este dispositivo.')
+      window.alert(t.favoriteSaveError)
     }
   }
 
@@ -489,54 +517,68 @@ export default function App() {
     <div
       className={`app-background ${isMapPage ? 'map-background' : ''}`}
       data-theme={isDarkMode ? 'dark' : 'light'}
+      lang={language}
     >
       <div
         className={`app-frame ${isMapPage ? 'map-frame' : ''} ${showWelcomeScreen ? 'welcome-frame' : ''}`}
       >
         {isMapPage ? (
-          <Suspense fallback={<div className="map-loading">Cargando mapa…</div>}>
+          <Suspense fallback={<div className="map-loading">{t.mapLoading}</div>}>
             <RouteMap
               selectedRoute={selectedRoute}
               onSelectRoute={setSelectedRoute}
               isDarkMode={isDarkMode}
+              language={language}
+              onLanguageChange={changeLanguage}
             />
           </Suspense>
         ) : showWelcomeScreen ? (
           <main className="welcome-screen">
+            <img
+              className="welcome-hero-image"
+              src="/bus-hero.png"
+              alt={t.homeHeroAlt}
+              fetchPriority="high"
+            />
             <div className="welcome-topline">
-              <span>RECORRIDOS Y HORARIOS · SAN RAFAEL</span>
-              <button
-                type="button"
-                className="theme-toggle"
-                role="switch"
-                aria-checked={isDarkMode}
-                aria-label={isDarkMode ? 'Activar modo claro' : 'Activar modo oscuro'}
-                onClick={toggleDarkMode}
-              >
-                <span aria-hidden="true">{isDarkMode ? '☀' : '☾'}</span>
-              </button>
+              <span>{t.welcomeEyebrow}</span>
+              <div className="welcome-controls">
+                <LanguageSwitcher
+                  language={language}
+                  onChange={changeLanguage}
+                  labels={t}
+                />
+                <button
+                  type="button"
+                  className="theme-toggle"
+                  role="switch"
+                  aria-checked={isDarkMode}
+                  aria-label={isDarkMode ? t.lightMode : t.darkMode}
+                  onClick={toggleDarkMode}
+                >
+                  <span aria-hidden="true">{isDarkMode ? '☀' : '☾'}</span>
+                </button>
+              </div>
             </div>
             <div className="welcome-content">
-              <p className="welcome-kicker">TU VIAJE EMPIEZA ACÁ</p>
-              <h1>Tu viaje,<br />a tiempo.</h1>
-              <p className="welcome-description">
-                Consulta recorridos y horarios publicados por Iselín y organiza tu próximo viaje.
-              </p>
+              <p className="welcome-kicker">{t.welcomeKicker}</p>
+              <h1>{t.welcomeTitleStart}<br />{t.welcomeTitleEnd}</h1>
+              <p className="welcome-description">{t.welcomeDescription}</p>
               <form className="welcome-form" onSubmit={handleNameSubmit}>
-                <label htmlFor="user-name">¿Cómo te llamas?</label>
+                <label htmlFor="user-name">{t.namePrompt}</label>
                 <input
                   id="user-name"
                   type="text"
                   value={nameInput}
                   onChange={(event) => setNameInput(event.target.value)}
-                  placeholder="Por ejemplo, Javier"
+                  placeholder={t.namePlaceholder}
                   maxLength={40}
                   autoComplete="given-name"
                   required
                   autoFocus
                 />
                 <button type="submit">
-                  Comenzar mi viaje
+                  {t.startJourney}
                   <span aria-hidden="true">→</span>
                 </button>
               </form>
@@ -547,8 +589,8 @@ export default function App() {
         <header className="app-header">
           <div className="brand-lockup">
             <div>
-              <h1>¡Hola, {userName}!</h1>
-              <p>Tu viaje, a tiempo</p>
+              <h1>{t.hello.replace('{name}', userName)}</h1>
+              <p>{t.tagline}</p>
             </div>
           </div>
           <div className="header-actions">
@@ -559,17 +601,22 @@ export default function App() {
                 setNameInput(userName)
                 setShowWelcomeScreen(true)
               }}
-              aria-label="Cambiar nombre"
-              title="Cambiar nombre"
+              aria-label={t.editNameAccessible}
+              title={t.editNameAccessible}
             >
-              Editar
+              {t.editName}
             </button>
+            <LanguageSwitcher
+              language={language}
+              onChange={changeLanguage}
+              labels={t}
+            />
             <button
               type="button"
               className="theme-toggle"
               role="switch"
               aria-checked={isDarkMode}
-              aria-label={isDarkMode ? 'Activar modo claro' : 'Activar modo oscuro'}
+              aria-label={isDarkMode ? t.lightMode : t.darkMode}
               onClick={toggleDarkMode}
             >
               <span aria-hidden="true">{isDarkMode ? '☀' : '☾'}</span>
@@ -582,17 +629,17 @@ export default function App() {
               <p className="eyebrow">
                 {selectedRouteInfo
                   ? selectedRouteGroup?.display_name ?? selectedRouteInfo.name
-                  : 'LÍNEA 520 · SAN RAFAEL / MONTE COMÁN'}
+                  : t.fallbackRouteName}
               </p>
-              <h2>¿A dónde vamos hoy?</h2>
-              <p>Elegí una línea, un recorrido y una parada para planificar tu viaje.</p>
+              <h2>{t.journeyQuestion}</h2>
+              <p>{t.journeyDescription}</p>
             </section>
 
             {routeCatalog.length ? (
-              <section className="route-catalog" aria-label="Líneas y recorridos">
+              <section className="route-catalog" aria-label={t.routesAndLines}>
                 <div className="route-catalog-controls">
                   <div className="journey-select-field">
-                    <label htmlFor="route-catalog-select">Línea y recorrido</label>
+                    <label htmlFor="route-catalog-select">{t.lineAndRoute}</label>
                     <div className="select-wrap">
                       <span className="select-pin" aria-hidden="true">↔</span>
                       <select
@@ -636,13 +683,13 @@ export default function App() {
                     <span className="nearby-home-copy">
                       <strong>
                         {nearbyStatus === 'loading'
-                          ? 'Buscando recorridos cercanos…'
-                          : 'Buscar recorridos cercanos'}
+                          ? t.findNearbyLoading
+                          : t.findNearby}
                       </strong>
                       <small>
                         {nearbyStatus === 'loading'
-                          ? 'Consultando tu ubicación'
-                          : 'Trazados publicados a menos de 500 m'}
+                          ? t.checkingLocation
+                          : t.routeWithin500m}
                       </small>
                     </span>
                     <span className="nearby-home-arrow" aria-hidden="true">→</span>
@@ -655,7 +702,7 @@ export default function App() {
                 )}
                 {nearbyMessage && (
                   <div className="nearby-home-results" role="status" aria-live="polite">
-                    <p>{nearbyMessage}</p>
+                    <p>{t[nearbyMessage] ?? nearbyMessage}</p>
                     {nearbyLines.map((line) => (
                       <button
                         type="button"
@@ -663,22 +710,24 @@ export default function App() {
                         onClick={() => selectRoute(line.routeCode)}
                       >
                         <strong>{line.groupName}</strong>
-                        <span>{line.routeCode} · a {line.distance} m</span>
+                        <span>
+                          {line.routeCode} · {language === 'en' ? `${line.distance} m away` : `a ${line.distance} m`}
+                        </span>
                       </button>
                     ))}
                     {nearbyStatus === 'ready' && (
                       <small>
-                        Se compara tu ubicación con el trazado publicado; no se guarda ni se muestran paradas cercanas.
+                        {t.nearbyPrivacy}
                       </small>
                     )}
                   </div>
                 )}
                 {catalogError && (
-                  <p className="catalog-error" role="status">{catalogError}</p>
+                  <p className="catalog-error" role="status">{t[catalogError] ?? catalogError}</p>
                 )}
               </section>
             ) : (
-              <section className="route-picker" aria-label="Sentido del recorrido">
+              <section className="route-picker" aria-label={t.routeDirection}>
                 {[
                   { code: '520A', label: 'San Rafael', destination: 'Monte Comán' },
                   { code: '520B', label: 'Monte Comán', destination: 'San Rafael' },
@@ -693,13 +742,13 @@ export default function App() {
                     <span className="route-badge">{route.code}</span>
                     <span className="route-names">
                       <strong>{route.label}</strong>
-                      <span>hacia {route.destination}</span>
+                      <span>{t.toward} {route.destination}</span>
                     </span>
                     <span className="route-arrow" aria-hidden="true">↗</span>
                   </button>
                 ))}
                 {catalogError && (
-                  <p className="catalog-error" role="status">{catalogError}</p>
+                  <p className="catalog-error" role="status">{t[catalogError] ?? catalogError}</p>
                 )}
               </section>
             )}
@@ -707,7 +756,7 @@ export default function App() {
             <section className="stop-field">
               <div className="journey-select-grid">
                 <div className="journey-select-field">
-                  <label htmlFor="stop-select">Desde</label>
+                  <label htmlFor="stop-select">{t.from}</label>
                   <div className="select-wrap">
                     <span className="select-pin" aria-hidden="true">●</span>
                     <select
@@ -726,14 +775,14 @@ export default function App() {
                           </option>
                         ))
                       ) : (
-                        <option value="">Cargando paradas…</option>
+                        <option value="">{t.loadingStops}</option>
                       )}
                     </select>
                     <span className="select-chevron" aria-hidden="true">⌄</span>
                   </div>
                 </div>
                 <div className="journey-select-field">
-                  <label htmlFor="destination-select">Hasta</label>
+                  <label htmlFor="destination-select">{t.to}</label>
                   <div className="select-wrap">
                     <span className="destination-pin" aria-hidden="true">■</span>
                     <select
@@ -749,7 +798,7 @@ export default function App() {
                           </option>
                         ))
                       ) : (
-                        <option value="">Fin del recorrido</option>
+                        <option value="">{t.routeEnd}</option>
                       )}
                     </select>
                     <span className="select-chevron" aria-hidden="true">⌄</span>
@@ -764,11 +813,11 @@ export default function App() {
                 aria-pressed={isFavorite}
               >
                 <span aria-hidden="true">{isFavorite ? '★' : '☆'}</span>
-                {isFavorite ? 'Parada guardada' : 'Guardar esta parada'}
+                {isFavorite ? t.savedStop : t.saveStop}
               </button>
               {favorites.length > 0 && (
-                <div className="favorite-stops" aria-label="Paradas favoritas">
-                  <span className="favorite-stops-label">TUS FAVORITOS</span>
+                <div className="favorite-stops" aria-label={t.favoriteStops}>
+                  <span className="favorite-stops-label">{t.favorites}</span>
                   <div className="favorite-chips">
                     {favorites.map((favorite) => (
                       <button
@@ -788,31 +837,31 @@ export default function App() {
 
             {connectionError && (
               <div role="status" className="error-banner">
-                <span>{connectionError}</span>
+                <span>{t[connectionError] ?? connectionError}</span>
                 <button type="button" onClick={() => setRefreshKey((key) => key + 1)}>
-                  Reintentar
+                  {t.retry}
                 </button>
               </div>
             )}
 
             {loading ? (
-              <div className="state-card">Buscando próximos horarios…</div>
+              <div className="state-card">{t.loadingDepartures}</div>
             ) : connectionError ? (
               <div className="state-card error-state">
-                No pudimos cargar los horarios. Revisa la conexión e inténtalo de nuevo.
+                {t[connectionError] ?? connectionError}
               </div>
             ) : !routeStops.length ? (
               <div className="state-card">
-                <p>Todavía no hay horarios para el sentido {selectedRoute}.</p>
+                <p>{t.noSchedulesForRoute.replace('{route}', selectedRoute)}</p>
                 <button
                   type="button"
                   onClick={() => selectRoute(selectedRoute === '520A' ? '520B' : '520A')}
                 >
-                  Ver el otro sentido
+                  {t.otherDirection}
                 </button>
               </div>
             ) : !nextDeparture ? (
-              <div className="state-card">No hay más servicios programados en los próximos días.</div>
+              <div className="state-card">{t.noUpcomingServices}</div>
             ) : (
               <>
                 <section
@@ -823,30 +872,32 @@ export default function App() {
                   <div className="service-card-top">
                     <div className="service-label">
                       <span className="service-indicator" />
-                      <span>PRÓXIMO SERVICIO</span>
+                      <span>{t.nextService}</span>
                     </div>
-                    <span className="day-pill">{formatDayLabel(nextDeparture.departure, now)}</span>
+                    <span className="day-pill">
+                      {formatDayLabel(nextDeparture.departure, now, t, language)}
+                    </span>
                   </div>
                   <div className="service-time-row">
                     <div>
                       <h2 id="next-trip-heading">{formatTime(nextDeparture.departure.toTimeString())}</h2>
-                      <p className="countdown">{getTimeUntil(nextDeparture.departure, now)}</p>
+                      <p className="countdown">{getTimeUntil(nextDeparture.departure, now, t)}</p>
                     </div>
                     <div className="frequency-pill">
-                      <span>FRECUENCIA</span>
+                      <span>{t.frequency}</span>
                       <strong>#{nextDeparture.trip.frequency_number}</strong>
                     </div>
                   </div>
                   <div className="service-destination">
                     <span className="destination-arrow" aria-hidden="true">→</span>
-                  <span>Hasta <strong>{selectedDestination || 'Fin del recorrido'}</strong></span>
+                  <span>{t.to} <strong>{selectedDestination || t.routeEnd}</strong></span>
                   <time>{destinationStopTime ? formatTime(destinationStopTime.departure_time) : '--:--'}</time>
                   </div>
                   {destinationStopTime && (
                   <p className="arrival-caption">
-                    Llegada estimada {formatTime(nextDeparture.arrival.toTimeString())}
+                    {t.estimatedArrival} {formatTime(nextDeparture.arrival.toTimeString())}
                     <span>·</span>
-                    {journeyDuration} min de viaje
+                    {journeyDuration} {t.minutesOfTravel}
                   </p>
                   )}
                 </section>
@@ -854,15 +905,15 @@ export default function App() {
                 <section
                   key={`route-${selectedRoute}-${selectedStop}-${selectedDestination}`}
                   className="route-preview"
-                  aria-label="Paradas cercanas del recorrido"
+                  aria-label={t.route}
                 >
                   <div className="section-heading">
                     <div>
-                      <p className="eyebrow">EL RECORRIDO</p>
-                      <h2>Tu viaje, de un vistazo</h2>
+                      <p className="eyebrow">{t.route}</p>
+                      <h2>{t.tripAtAGlance}</h2>
                     </div>
                     <div className="route-preview-actions">
-                      <span className="stops-count">{nextStopTimes.length} paradas</span>
+                      <span className="stops-count">{nextStopTimes.length} {t.stops}</span>
                       {['520A', '520B'].includes(selectedRoute) && (
                         <a
                           className="route-map-link"
@@ -871,7 +922,7 @@ export default function App() {
                           rel="noopener noreferrer"
                         >
                           <span aria-hidden="true">⌖</span>
-                          Ver mapa
+                          {t.viewMap}
                         </a>
                       )}
                     </div>
@@ -884,16 +935,16 @@ export default function App() {
                       const isSelected = index === selectedStopIndex
                       const isDestination = index === nextDeparture.destinationIndex
                       const label = isSelected
-                        ? 'TU PARADA'
+                          ? t.yourStop
                         : isDestination
-                          ? 'TU DESTINO'
+                            ? t.yourDestination
                         : index === 0
-                          ? 'ORIGEN'
+                            ? t.origin
                           : index === nextStopTimes.length - 1
-                            ? 'DESTINO'
+                              ? t.destination
                             : index < selectedStopIndex
-                              ? 'PARADA ANTERIOR'
-                              : 'SIGUIENTE PARADA'
+                                ? t.previousStop
+                                : t.nextStop
 
                       return (
                         <div
@@ -917,7 +968,7 @@ export default function App() {
                 {upcomingDepartures.length > 1 && (
                   <details className="more-services">
                     <summary>
-                      <span>Ver otras salidas</span>
+                      <span>{t.otherDepartures}</span>
                       <span className="more-count">{upcomingDepartures.length - 1}</span>
                       <span className="details-chevron" aria-hidden="true">⌄</span>
                     </summary>
@@ -925,8 +976,12 @@ export default function App() {
                       {upcomingDepartures.slice(1).map((departure) => (
                         <div key={`${departure.trip.id}-${departure.departure.toISOString()}`} className="other-service">
                           <span className="other-time">{formatTime(departure.departure.toTimeString())}</span>
-                          <span>{formatDayLabel(departure.departure, now)}</span>
-                          <span>Frecuencia #{departure.trip.frequency_number}</span>
+                          <span>
+                            {formatDayLabel(departure.departure, now, t, language)}
+                          </span>
+                          <span>
+                            {t.frequencyNumber.replace('#{number}', `#${departure.trip.frequency_number}`)}
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -935,7 +990,7 @@ export default function App() {
 
                 <details className="full-itinerary">
                   <summary>
-                    <span>Ver todas las paradas y horarios</span>
+                    <span>{t.allStopsAndTimes}</span>
                     <span className="details-chevron" aria-hidden="true">⌄</span>
                   </summary>
                   <ol>
@@ -956,27 +1011,28 @@ export default function App() {
 
             <p className="estimate-note">
               <span aria-hidden="true">ⓘ</span>
-              Horarios programados: {serviceDaysLabel.toLowerCase()}
-              {nextDeparture?.trip.season && nextDeparture.trip.season !== 'ANUAL'
-                ? ` · ${nextDeparture.trip.season}`
-                : ''}. Pueden variar por tránsito o demoras; no es ubicación en vivo.
-              {hasSpecialServiceCalendar &&
-                ' La app no calcula el calendario de feriados ni condiciones estacionales; confirma el servicio.'}
+              {t.scheduledTimes}{' '}
+              {language === 'en' ? serviceDaysLabel : serviceDaysLabel.toLowerCase()}
+              {serviceSeason && serviceSeason.toUpperCase() !== 'ANUAL'
+                ? ` · ${serviceSeasonLabel}`
+                : ''}
+              {t.scheduleDisclaimer}
+              {hasSpecialServiceCalendar && t.specialCalendarDisclaimer}
             </p>
 
             <section className="feedback-card survey-card" aria-labelledby="survey-heading">
               <div className="feedback-heading">
                 <span className="feedback-icon" aria-hidden="true">✳</span>
                 <div>
-                  <h2 id="survey-heading">Encuesta de Google</h2>
-                  <p>Ayudanos a mejorar BusTracker respondiendo esta encuesta.</p>
+                  <h2 id="survey-heading">{t.googleSurvey}</h2>
+                  <p>{t.surveyDescription}</p>
                 </div>
               </div>
               <div className="feedback-actions">
                 <span>
                   {HAS_GOOGLE_FORM_URL
-                    ? 'Este enlace abre la encuesta de Google.'
-                    : 'El enlace de Google Forms no es válido.'}
+                    ? t.surveyOpens
+                    : t.invalidSurveyLink}
                 </span>
                 <a
                   href={HAS_GOOGLE_FORM_URL ? GOOGLE_FORM_URL : undefined}
@@ -989,12 +1045,12 @@ export default function App() {
                   className={!HAS_GOOGLE_FORM_URL ? 'feedback-submit is-disabled' : 'feedback-submit'}
                 >
                   <span aria-hidden="true">↗</span>
-                  Responder encuesta
+                  {t.answerSurvey}
                 </a>
               </div>
             </section>
             <footer className="app-credit">
-              Diseñado y desarrollado por <strong>Brega Javier</strong>
+              {t.footerCredit} <strong>Brega Javier</strong>
               <span aria-hidden="true">·</span>
               2026
             </footer>

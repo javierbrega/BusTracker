@@ -23,7 +23,7 @@ Completa `.env.local` con las variables de entorno de Supabase:
 
 Sin las variables de Supabase, la aplicación usa horarios de demostración de la línea 520. Nunca agregues `.env.local` al repositorio ni uses una clave `service_role` en el frontend.
 
-Al ingresar por primera vez, la app solicita un nombre y lo guarda localmente en ese dispositivo. El selector de tema claro/oscuro también guarda su preferencia. La encuesta enlaza al formulario público de Google Forms.
+Al ingresar por primera vez, la app solicita un nombre y lo guarda localmente en ese dispositivo. Los selectores de idioma (español/inglés) y tema claro/oscuro también guardan sus preferencias en ese dispositivo. Los nombres oficiales de líneas y paradas se conservan como los publica Iselín; el formulario de encuesta está disponible en español.
 
 ## Catálogo de Iselín y carga de datos
 
