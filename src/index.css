@@ -187,6 +187,96 @@ input:focus-visible {
   gap: 9px;
 }
 
+.route-catalog {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.route-catalog-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 9px;
+}
+
+.nearby-home-button {
+  min-height: 47px;
+  white-space: nowrap;
+}
+
+.nearby-home-results {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  border: 1px solid #e3e6eb;
+  border-radius: 13px;
+  background: #fff;
+  padding: 10px;
+}
+
+.nearby-home-results p {
+  margin: 0 0 2px;
+  color: #606a79;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.nearby-home-results button {
+  display: flex;
+  min-height: 39px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid #e4e7ed;
+  border-radius: 9px;
+  background: #f8f9fb;
+  padding: 7px 9px;
+  color: #273241;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nearby-home-results button strong {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nearby-home-results button span {
+  flex: 0 0 auto;
+  color: #647083;
+  font-size: 9px;
+}
+
+.nearby-home-results small,
+.catalog-error {
+  margin: 0;
+  color: #7b8492;
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.catalog-error {
+  color: #a84239;
+}
+
+.route-alert {
+  margin: 0;
+  border-left: 3px solid #e4ac18;
+  border-radius: 7px;
+  background: #fff8df;
+  padding: 8px 10px;
+  color: #62521d;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.route-picker .catalog-error {
+  grid-column: 1 / -1;
+}
+
 .route-option {
   display: flex;
   min-width: 0;
@@ -1892,6 +1982,7 @@ input:focus-visible {
 
 .app-background[data-theme='dark'] .route-option,
 .app-background[data-theme='dark'] .select-wrap select,
+.app-background[data-theme='dark'] .nearby-home-results,
 .app-background[data-theme='dark'] .route-preview,
 .app-background[data-theme='dark'] .more-services,
 .app-background[data-theme='dark'] .full-itinerary,
@@ -1924,6 +2015,7 @@ input:focus-visible {
 
 .app-background[data-theme='dark'] .route-names strong,
 .app-background[data-theme='dark'] .select-wrap select,
+.app-background[data-theme='dark'] .nearby-home-results button,
 .app-background[data-theme='dark'] .track-copy strong,
 .app-background[data-theme='dark'] .more-services summary,
 .app-background[data-theme='dark'] .full-itinerary summary,
@@ -1931,6 +2023,23 @@ input:focus-visible {
 .app-background[data-theme='dark'] .favorite-chip,
 .app-background[data-theme='dark'] .other-time {
   color: #e2e4e9;
+}
+
+.app-background[data-theme='dark'] .nearby-home-results button {
+  border-color: #3b404b;
+  background: #292d35;
+}
+
+.app-background[data-theme='dark'] .nearby-home-results p,
+.app-background[data-theme='dark'] .nearby-home-results button span,
+.app-background[data-theme='dark'] .nearby-home-results small {
+  color: #a0a5af;
+}
+
+.app-background[data-theme='dark'] .route-alert {
+  border-left-color: #e4ac18;
+  background: #383326;
+  color: #f0dfaa;
 }
 
 .app-background[data-theme='dark'] .route-names > span,

@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+import { findNearbyRouteGroups } from './lib/routeProximity'
 
 const RouteMap = lazy(() => import('./components/RouteMap'))
 
@@ -190,6 +191,12 @@ export default function App() {
   const [selectedDestinationName, setSelectedDestinationName] = useState('')
   const [favorites, setFavorites] = useState(loadFavoriteRoutes)
   const [trips, setTrips] = useState([])
+  const [routeCatalog, setRouteCatalog] = useState([])
+  const [routeGroups, setRouteGroups] = useState([])
+  const [catalogError, setCatalogError] = useState('')
+  const [nearbyStatus, setNearbyStatus] = useState('idle')
+  const [nearbyMessage, setNearbyMessage] = useState('')
+  const [nearbyLines, setNearbyLines] = useState([])
   const [loading, setLoading] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [connectionError, setConnectionError] = useState('')
@@ -199,6 +206,57 @@ export default function App() {
     const timer = window.setInterval(() => setNow(new Date()), 30_000)
     return () => window.clearInterval(timer)
   }, [])
+
+  useEffect(() => {
+    if (isMapPage || !supabase) return undefined
+
+    let cancelled = false
+    const loadRouteCatalog = async () => {
+      try {
+        const [groupsResult, routesResult] = await Promise.all([
+          supabase
+            .from('route_groups')
+            .select('id,display_id,display_name,alert_message')
+            .order('display_id')
+            .order('display_name'),
+          supabase
+            .from('routes')
+            .select(
+              'code,name,group_id,group:route_groups!routes_group_id_fkey(id,display_id,display_name,alert_message)',
+            )
+            .order('code'),
+        ])
+
+        if (groupsResult.error) throw groupsResult.error
+        if (routesResult.error) throw routesResult.error
+        if (cancelled) return
+
+        const loadedRoutes = routesResult.data ?? []
+        setRouteGroups(groupsResult.data ?? [])
+        setRouteCatalog(loadedRoutes)
+        setSelectedRoute((currentRoute) =>
+          loadedRoutes.some((route) => route.code === currentRoute)
+            ? currentRoute
+            : loadedRoutes.find((route) => route.code === '520B')?.code ??
+              loadedRoutes[0]?.code ??
+              currentRoute,
+        )
+        setCatalogError('')
+      } catch (error) {
+        console.error('Error cargando el catálogo de recorridos:', error)
+        if (!cancelled) {
+          setCatalogError(
+            'No pudimos cargar todas las líneas. Puedes seguir consultando los recorridos disponibles.',
+          )
+        }
+      }
+    }
+
+    loadRouteCatalog()
+    return () => {
+      cancelled = true
+    }
+  }, [isMapPage])
 
   useEffect(() => {
     if (isMapPage) return undefined
@@ -221,6 +279,8 @@ export default function App() {
             id,
             frequency_number,
             service_days,
+            service_description,
+            season,
             routes!inner(code, name),
             stop_times(departure_time, stop_sequence, stops(name))
           `)
@@ -256,6 +316,12 @@ export default function App() {
       .filter((stopTime) => stopTime.stops?.name)
       .map((stopTime) => [stopTime.stops.name, stopTime]),
   ).values()]
+  const selectedRouteInfo = routeCatalog.find(
+    (route) => route.code === selectedRoute,
+  )
+  const selectedRouteGroup = routeGroups.find(
+    (group) => group.id === selectedRouteInfo?.group_id,
+  )
   const selectedStop =
     routeStops.find((stopTime) => stopTime.stops.name === selectedStopName)?.stops.name ??
     routeStops[0]?.stops.name ??
@@ -289,10 +355,14 @@ export default function App() {
     .map((stopTime, index) => ({ stopTime, index }))
     .filter(({ index }) => Math.abs(index - selectedStopIndex) <= 1)
   const serviceDaysLabel = nextDeparture
-    ? nextDeparture.trip.service_days?.length === 5
-      ? 'Lunes a viernes'
-      : 'Días de servicio'
+    ? nextDeparture.trip.service_description ||
+      (nextDeparture.trip.service_days?.length === 5
+        ? 'Lunes a viernes'
+        : 'días de servicio')
     : 'Lunes a viernes'
+  const hasSpecialServiceCalendar = /feriad|receso|apertura|temporada/i.test(
+    serviceDaysLabel,
+  )
   const handleNameSubmit = (event) => {
     event.preventDefault()
     const nextName = nameInput.trim()
@@ -325,6 +395,72 @@ export default function App() {
     setSelectedDestinationName('')
     setTrips([])
     setLoading(true)
+  }
+
+  const findNearbyLines = () => {
+    if (!routeCatalog.length) {
+      setNearbyStatus('error')
+      setNearbyMessage('El catálogo de recorridos todavía no está disponible.')
+      setNearbyLines([])
+      return
+    }
+    if (!window.isSecureContext || !navigator.geolocation) {
+      setNearbyStatus('error')
+      setNearbyMessage(
+        'La ubicación requiere una conexión segura y un navegador compatible.',
+      )
+      setNearbyLines([])
+      return
+    }
+
+    setNearbyStatus('loading')
+    setNearbyMessage('')
+    setNearbyLines([])
+
+    navigator.geolocation.getCurrentPosition(
+      async ({ coords }) => {
+        try {
+          const { data, error } = await supabase
+            .from('routes')
+            .select(
+              'code,name,group_id,geometry,group:route_groups!routes_group_id_fkey(id,display_id,display_name)',
+            )
+            .not('geometry', 'is', null)
+          if (error) throw error
+
+          const matches = findNearbyRouteGroups(
+            { latitude: coords.latitude, longitude: coords.longitude },
+            data ?? [],
+          )
+          setNearbyLines(matches.slice(0, 5))
+          setNearbyStatus('ready')
+          setNearbyMessage(
+            matches.length
+              ? 'Recorridos publicados a menos de 500 m de tu ubicación:'
+              : 'No encontramos recorridos publicados a menos de 500 m. La cobertura puede variar según la información disponible.',
+          )
+        } catch (error) {
+          console.error('Error buscando recorridos cercanos:', error)
+          setNearbyStatus('error')
+          setNearbyMessage(
+            'No pudimos consultar los trazados cercanos. Inténtalo de nuevo más tarde.',
+          )
+        }
+      },
+      (error) => {
+        setNearbyStatus('error')
+        setNearbyMessage(
+          error.code === 1
+            ? 'No tenemos permiso para acceder a tu ubicación. Puedes habilitarlo desde el navegador.'
+            : error.code === 2
+              ? 'No pudimos obtener tu ubicación. Comprueba el GPS e inténtalo otra vez.'
+              : error.code === 3
+                ? 'La solicitud de ubicación tardó demasiado. Inténtalo otra vez.'
+                : 'No se pudo obtener tu ubicación.',
+        )
+      },
+      { enableHighAccuracy: true, timeout: 12_000, maximumAge: 60_000 },
+    )
   }
 
   const toggleFavorite = () => {
@@ -369,7 +505,7 @@ export default function App() {
         ) : showWelcomeScreen ? (
           <main className="welcome-screen">
             <div className="welcome-topline">
-              <span>520 · SAN RAFAEL / MONTE COMÁN</span>
+              <span>RECORRIDOS Y HORARIOS · SAN RAFAEL</span>
               <button
                 type="button"
                 className="theme-toggle"
@@ -385,7 +521,7 @@ export default function App() {
               <p className="welcome-kicker">TU VIAJE EMPIEZA ACÁ</p>
               <h1>Tu viaje,<br />a tiempo.</h1>
               <p className="welcome-description">
-                Consulta los horarios de la línea 520 y organiza tu próximo viaje.
+                Consulta recorridos y horarios publicados por Iselín y organiza tu próximo viaje.
               </p>
               <form className="welcome-form" onSubmit={handleNameSubmit}>
                 <label htmlFor="user-name">¿Cómo te llamas?</label>
@@ -444,32 +580,111 @@ export default function App() {
 
           <main className="schedule-main">
             <section className="welcome-block">
-              <p className="eyebrow">LÍNEA 520 · SAN RAFAEL / MONTE COMÁN</p>
+              <p className="eyebrow">
+                {selectedRouteInfo
+                  ? selectedRouteGroup?.display_name ?? selectedRouteInfo.name
+                  : 'LÍNEA 520 · SAN RAFAEL / MONTE COMÁN'}
+              </p>
               <h2>¿A dónde vamos hoy?</h2>
-              <p>Elegí un sentido y una parada para planificar tu viaje.</p>
+              <p>Elegí una línea, un recorrido y una parada para planificar tu viaje.</p>
             </section>
 
-            <section className="route-picker" aria-label="Sentido del recorrido">
-              {[
-                { code: '520A', label: 'San Rafael', destination: 'Monte Comán', marker: 'A' },
-                { code: '520B', label: 'Monte Comán', destination: 'San Rafael', marker: 'B' },
-              ].map((route) => (
-                <button
-                  key={route.code}
-                  type="button"
-                  aria-pressed={selectedRoute === route.code}
-                  onClick={() => selectRoute(route.code)}
-                  className={`route-option ${selectedRoute === route.code ? 'is-selected' : ''}`}
-                >
-                  <span className="route-badge">{route.code}</span>
-                  <span className="route-names">
-                    <strong>{route.label}</strong>
-                    <span>hacia {route.destination}</span>
-                  </span>
-                  <span className="route-arrow" aria-hidden="true">↗</span>
-                </button>
-              ))}
-            </section>
+            {routeCatalog.length ? (
+              <section className="route-catalog" aria-label="Líneas y recorridos">
+                <div className="route-catalog-controls">
+                  <div className="journey-select-field">
+                    <label htmlFor="route-catalog-select">Línea y recorrido</label>
+                    <div className="select-wrap">
+                      <span className="select-pin" aria-hidden="true">↔</span>
+                      <select
+                        id="route-catalog-select"
+                        value={selectedRoute}
+                        onChange={(event) => selectRoute(event.target.value)}
+                      >
+                        {routeGroups.map((group) => {
+                          const groupRoutes = routeCatalog.filter(
+                            (route) => route.group_id === group.id,
+                          )
+                          if (!groupRoutes.length) return null
+                          return (
+                            <optgroup key={group.id} label={group.display_name}>
+                              {groupRoutes.map((route) => (
+                                <option key={route.code} value={route.code}>
+                                  {route.name}
+                                </option>
+                              ))}
+                            </optgroup>
+                          )
+                        })}
+                      </select>
+                      <span className="select-chevron" aria-hidden="true">⌄</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="nearby-button nearby-home-button"
+                    onClick={findNearbyLines}
+                    disabled={nearbyStatus === 'loading'}
+                  >
+                    <span aria-hidden="true">⌖</span>
+                    {nearbyStatus === 'loading' ? 'Buscando…' : 'Cerca de mí'}
+                  </button>
+                </div>
+                {selectedRouteGroup?.alert_message && (
+                  <p className="route-alert" role="note">
+                    {selectedRouteGroup.alert_message}
+                  </p>
+                )}
+                {nearbyMessage && (
+                  <div className="nearby-home-results" role="status" aria-live="polite">
+                    <p>{nearbyMessage}</p>
+                    {nearbyLines.map((line) => (
+                      <button
+                        type="button"
+                        key={line.groupId}
+                        onClick={() => selectRoute(line.routeCode)}
+                      >
+                        <strong>{line.groupName}</strong>
+                        <span>{line.routeCode} · a {line.distance} m</span>
+                      </button>
+                    ))}
+                    {nearbyStatus === 'ready' && (
+                      <small>
+                        Se compara tu ubicación con el trazado publicado; no se guarda ni se muestran paradas cercanas.
+                      </small>
+                    )}
+                  </div>
+                )}
+                {catalogError && (
+                  <p className="catalog-error" role="status">{catalogError}</p>
+                )}
+              </section>
+            ) : (
+              <section className="route-picker" aria-label="Sentido del recorrido">
+                {[
+                  { code: '520A', label: 'San Rafael', destination: 'Monte Comán' },
+                  { code: '520B', label: 'Monte Comán', destination: 'San Rafael' },
+                ].map((route) => (
+                  <button
+                    key={route.code}
+                    type="button"
+                    aria-pressed={selectedRoute === route.code}
+                    onClick={() => selectRoute(route.code)}
+                    className={`route-option ${selectedRoute === route.code ? 'is-selected' : ''}`}
+                  >
+                    <span className="route-badge">{route.code}</span>
+                    <span className="route-names">
+                      <strong>{route.label}</strong>
+                      <span>hacia {route.destination}</span>
+                    </span>
+                    <span className="route-arrow" aria-hidden="true">↗</span>
+                  </button>
+                ))}
+                {catalogError && (
+                  <p className="catalog-error" role="status">{catalogError}</p>
+                )}
+              </section>
+            )}
 
             <section className="stop-field">
               <div className="journey-select-grid">
@@ -630,15 +845,17 @@ export default function App() {
                     </div>
                     <div className="route-preview-actions">
                       <span className="stops-count">{nextStopTimes.length} paradas</span>
-                      <a
-                        className="route-map-link"
-                        href={`/?vista=mapa&route=${selectedRoute}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <span aria-hidden="true">⌖</span>
-                        Ver mapa
-                      </a>
+                      {['520A', '520B'].includes(selectedRoute) && (
+                        <a
+                          className="route-map-link"
+                          href={`/?vista=mapa&route=${selectedRoute}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          <span aria-hidden="true">⌖</span>
+                          Ver mapa
+                        </a>
+                      )}
                     </div>
                   </div>
                   <div className="route-track">
@@ -721,7 +938,12 @@ export default function App() {
 
             <p className="estimate-note">
               <span aria-hidden="true">ⓘ</span>
-              Horarios programados de {serviceDaysLabel.toLowerCase()}. Pueden variar por tránsito o demoras; no es ubicación en vivo.
+              Horarios programados: {serviceDaysLabel.toLowerCase()}
+              {nextDeparture?.trip.season && nextDeparture.trip.season !== 'ANUAL'
+                ? ` · ${nextDeparture.trip.season}`
+                : ''}. Pueden variar por tránsito o demoras; no es ubicación en vivo.
+              {hasSpecialServiceCalendar &&
+                ' La app no calcula el calendario de feriados ni condiciones estacionales; confirma el servicio.'}
             </p>
 
             <section className="feedback-card survey-card" aria-labelledby="survey-heading">

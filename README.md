@@ -1,12 +1,12 @@
 # BusTracker
 
-Aplicación web para consultar horarios programados de la línea 520. Los horarios son estimados y no representan la ubicación en vivo de los colectivos.
+Aplicación web para consultar recorridos y horarios publicados de Iselín. Los horarios son programados y no representan la ubicación en vivo de los colectivos.
 
 ## Requisitos
 
 - Node.js 20.19+ o 22.12+
 - npm
-- Un proyecto Supabase para consultar los horarios reales
+- Un proyecto Supabase para consultar recorridos y horarios
 
 ## Desarrollo local
 
@@ -22,15 +22,40 @@ Completa `.env.local` con las variables de entorno de Supabase:
 - `VITE_SUPABASE_ANON_KEY`
 - `VITE_GOOGLE_FORM_URL` (opcional): enlace publicado del formulario de Google. Por ahora, si no se define, se usa el enlace provisorio `https://forms.google.com/`.
 
-Sin las variables de Supabase, la aplicación usa horarios de demostración. Nunca agregues `.env.local` al repositorio ni uses una clave `service_role` en el frontend.
+Sin las variables de Supabase, la aplicación usa horarios de demostración de la línea 520. Nunca agregues `.env.local` al repositorio ni uses una clave `service_role` en el frontend.
 
 Al ingresar por primera vez, la app solicita un nombre y lo guarda localmente en ese dispositivo. El selector de tema claro/oscuro también guarda su preferencia. Cuando esté listo el formulario, reemplaza `VITE_GOOGLE_FORM_URL` por su enlace público de Google Forms (dominios `docs.google.com` o `forms.gle`) y vuelve a desplegar.
 
-## Mapa estimado y ubicación cercana
+## Catálogo de Iselín y carga de datos
 
-El enlace **Ver mapa** abre una vista propia de los sentidos 520A y 520B. El trazado es orientativo: se calculó sobre calles de OpenStreetMap pasando por San Rafael, Goudge, La Llave y Monte Comán, y no es un trazado oficial ni muestra colectivos en vivo. Las recomendaciones de paradas cercanas quedan pendientes hasta disponer de coordenadas verificadas para cada parada.
+El selector agrupa las líneas publicadas por Iselín y deja elegir una variante o sentido. La fuente de datos pública consultada es [`api_data` en Recorridos y Horarios de Iselín](https://logistica.iselinsa.com.ar/horarios_iselin). El importador valida e incluye grupos, variantes, geometrías disponibles, frecuencias, paradas y horarios por parada. La cantidad de datos puede cambiar cuando Iselín actualice su publicación.
 
-El botón **Cerca de mí** solo solicita permiso de ubicación cuando la persona lo pulsa. La posición se usa en el navegador para comparar con la línea estimada dentro de 500 m y centrar el mapa; BusTracker no la guarda. Al centrar el mapa, OpenStreetMap recibe solicitudes de teselas para el área visible. El mapa atribuye los datos a [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), disponibles bajo ODbL.
+Para preparar Supabase e importar una instantánea:
+
+1. En el SQL Editor de Supabase, ejecuta [`20261004000000_add_iselin_route_catalog.sql`](./supabase/migrations/20261004000000_add_iselin_route_catalog.sql).
+2. Genera archivos SQL pequeños con los datos validados:
+
+   ```powershell
+   npm run import:iselin -- --export-sql
+   ```
+
+   El comando crea la guía en `supabase/iselin-import/README.txt` y los lotes dentro de `supabase/iselin-import/sql/`. Abre y ejecuta cada archivo `.sql` de esa carpeta en el SQL Editor de Supabase **uno por vez, en orden alfabético**. Espera que cada consulta termine antes de ejecutar la siguiente y detente si alguna informa error. El último archivo, `050-cleanup.sql`, debe ejecutarse al final. Los lotes son repetibles si hay que reintentar uno. La sesión autenticada del editor realiza la escritura; no se usa ni se incluye ninguna clave API.
+
+   Para validar los datos sin generar el archivo:
+
+   ```powershell
+   npm run import:iselin -- --dry-run
+   ```
+
+   Como alternativa avanzada, `.\scripts\import-iselin.ps1` carga directamente con la clave `service_role` introducida en un prompt oculto. Nunca la pegues en el código, en Vercel ni en el chat. El SQL generado y el importador directo reemplazan los horarios publicados de las variantes presentes en la instantánea.
+
+La instantánea validada para este MVP contiene 23 grupos, 117 variantes, 755 frecuencias, 186 nombres de parada normalizados y 14.535 horarios de parada. Dos variantes de temporada alta (`515A-VERANO` y `515B-VERANO`) se publican sin geometría. La fuente pública no entrega coordenadas de cada parada; por eso, “Cerca de mí” compara la ubicación únicamente con los trazados disponibles y no recomienda paradas individuales. No se inventan coordenadas.
+
+## Mapa de la línea 520 y ubicación cercana
+
+El enlace **Ver mapa** abre una vista propia de los sentidos 520A y 520B. Este mapa aún usa un trazado orientativo sobre calles de OpenStreetMap; no es un trazado oficial ni muestra colectivos en vivo. El botón **Cerca de mí** de la pantalla principal no abre el mapa: solicita ubicación tras una acción explícita y muestra hasta cinco líneas cuyos trazados publicados están a 500 m o menos.
+
+La ubicación se procesa en el navegador y BusTracker no la guarda ni la envía al servicio de mapas. La geometría de las líneas se carga desde Supabase al pulsar el botón. El mapa atribuye sus datos a [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), disponibles bajo ODbL.
 
 ## Verificación de producción
 
