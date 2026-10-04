@@ -1,11 +1,43 @@
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 
-const DEMO_EMAIL = 'demo@local.test'
-const DEMO_PASSWORD = 'Demo123456!'
-const WHATSAPP_NUMBER = '5492996579823'
+const NAME_STORAGE_KEY = 'bustracker:user-name'
+const THEME_STORAGE_KEY = 'bustracker:dark-mode'
+const GOOGLE_FORM_URL =
+  import.meta.env.VITE_GOOGLE_FORM_URL?.trim() || 'https://forms.google.com/'
+const IS_PROVISIONAL_GOOGLE_FORM_URL = !import.meta.env.VITE_GOOGLE_FORM_URL?.trim()
 const WEEKDAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday']
 const DAY_NAMES = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
+
+const loadSavedName = () => {
+  try {
+    return window.localStorage.getItem(NAME_STORAGE_KEY) ?? ''
+  } catch (error) {
+    console.error('No se pudo leer el nombre guardado:', error)
+    return ''
+  }
+}
+
+const loadDarkMode = () => {
+  try {
+    return window.localStorage.getItem(THEME_STORAGE_KEY) === 'true'
+  } catch (error) {
+    console.error('No se pudo leer la preferencia de tema:', error)
+    return false
+  }
+}
+
+const isGoogleFormUrl = (formUrl) => {
+  try {
+    const url = new URL(formUrl)
+    return url.protocol === 'https:' &&
+      (url.hostname === 'docs.google.com' || url.hostname === 'forms.gle')
+  } catch {
+    return false
+  }
+}
+
+const HAS_GOOGLE_FORM_URL = isGoogleFormUrl(GOOGLE_FORM_URL)
 
 const buildDemoTrips = (route) => {
   const names =
@@ -140,39 +172,19 @@ const loadFavoriteRoutes = () => {
 }
 
 export default function App() {
-  const [session, setSession] = useState(null)
-  const [email, setEmail] = useState(DEMO_EMAIL)
-  const [password, setPassword] = useState(DEMO_PASSWORD)
-  const [activeTab, setActiveTab] = useState('horarios')
+  const [userName, setUserName] = useState(loadSavedName)
+  const [nameInput, setNameInput] = useState(userName)
+  const [showWelcomeScreen, setShowWelcomeScreen] = useState(!userName)
+  const [isDarkMode, setIsDarkMode] = useState(loadDarkMode)
   const [selectedRoute, setSelectedRoute] = useState('520B')
   const [selectedStopName, setSelectedStopName] = useState('')
   const [selectedDestinationName, setSelectedDestinationName] = useState('')
   const [favorites, setFavorites] = useState(loadFavoriteRoutes)
-  const [feedback, setFeedback] = useState('')
   const [trips, setTrips] = useState([])
   const [loading, setLoading] = useState(false)
   const [refreshKey, setRefreshKey] = useState(0)
   const [connectionError, setConnectionError] = useState('')
   const [now, setNow] = useState(() => new Date())
-  const isDemoSession = session?.isDemo === true
-
-  useEffect(() => {
-    if (!supabase) return undefined
-
-    let mounted = true
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (mounted) setSession(session)
-    })
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => setSession(session))
-
-    return () => {
-      mounted = false
-      subscription.unsubscribe()
-    }
-  }, [])
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000)
@@ -180,8 +192,6 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    if (activeTab !== 'horarios') return
-
     let cancelled = false
     const loadTrips = async () => {
       if (!supabase) {
@@ -227,7 +237,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [activeTab, refreshKey, selectedRoute])
+  }, [refreshKey, selectedRoute])
 
   const routeStops = [...new Map(
     trips
@@ -272,42 +282,30 @@ export default function App() {
       ? 'Lunes a viernes'
       : 'Días de servicio'
     : 'Lunes a viernes'
-  const feedbackMessage = feedback.trim()
-    ? `Hola, quiero dejar un comentario sobre BusTracker:\n\n${feedback.trim()}`
-    : ''
-  const feedbackUrl = feedbackMessage
-    ? `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(feedbackMessage)}`
-    : undefined
-
-  const handleLogin = async (event) => {
+  const handleNameSubmit = (event) => {
     event.preventDefault()
+    const nextName = nameInput.trim()
+    if (!nextName) return
 
-    if (import.meta.env.DEV && email === DEMO_EMAIL && password === DEMO_PASSWORD) {
-      setSession({ user: { email }, isDemo: true })
-      return
-    }
-
-    if (!supabase) {
-      alert('Supabase no está configurado. Usa las credenciales demo precargadas.')
-      return
-    }
-
-    setLoading(true)
     try {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) alert(`Error al iniciar sesión: ${error.message}`)
-    } finally {
-      setLoading(false)
+      window.localStorage.setItem(NAME_STORAGE_KEY, nextName)
+    } catch (error) {
+      console.error('No se pudo guardar el nombre:', error)
+      window.alert('No se pudo guardar tu nombre en este dispositivo.')
     }
+    setUserName(nextName)
+    setShowWelcomeScreen(false)
   }
 
-  const handleLogout = async () => {
-    if (isDemoSession || !supabase) {
-      setSession(null)
-      return
+  const toggleDarkMode = () => {
+    const nextDarkMode = !isDarkMode
+    try {
+      window.localStorage.setItem(THEME_STORAGE_KEY, String(nextDarkMode))
+    } catch (error) {
+      console.error('No se pudo guardar la preferencia de tema:', error)
+      window.alert('No se pudo guardar el tema en este dispositivo.')
     }
-    const { error } = await supabase.auth.signOut()
-    if (error) alert(`Error al cerrar sesión: ${error.message}`)
+    setIsDarkMode(nextDarkMode)
   }
 
   const selectRoute = (route) => {
@@ -342,34 +340,88 @@ export default function App() {
   }
 
   return (
-    <div className="app-background">
-      <div className="app-frame">
+    <div className="app-background" data-theme={isDarkMode ? 'dark' : 'light'}>
+      <div className={`app-frame ${showWelcomeScreen ? 'welcome-frame' : ''}`}>
+        {showWelcomeScreen ? (
+          <main className="welcome-screen">
+            <div className="welcome-topline">
+              <span>520 · SAN RAFAEL / MONTE COMÁN</span>
+              <button
+                type="button"
+                className="theme-toggle"
+                role="switch"
+                aria-checked={isDarkMode}
+                aria-label={isDarkMode ? 'Activar modo claro' : 'Activar modo oscuro'}
+                onClick={toggleDarkMode}
+              >
+                <span aria-hidden="true">{isDarkMode ? '☀' : '☾'}</span>
+              </button>
+            </div>
+            <div className="welcome-content">
+              <p className="welcome-kicker">TU VIAJE EMPIEZA ACÁ</p>
+              <h1>Tu viaje,<br />a tiempo.</h1>
+              <p className="welcome-description">
+                Consulta los horarios de la línea 520 y organiza tu próximo viaje.
+              </p>
+              <form className="welcome-form" onSubmit={handleNameSubmit}>
+                <label htmlFor="user-name">¿Cómo te llamas?</label>
+                <input
+                  id="user-name"
+                  type="text"
+                  value={nameInput}
+                  onChange={(event) => setNameInput(event.target.value)}
+                  placeholder="Por ejemplo, Javier"
+                  maxLength={40}
+                  autoComplete="given-name"
+                  required
+                  autoFocus
+                />
+                <button type="submit">
+                  Comenzar mi viaje
+                  <span aria-hidden="true">→</span>
+                </button>
+              </form>
+            </div>
+          </main>
+        ) : (
+          <>
         <header className="app-header">
           <div className="brand-lockup">
-            <span className="brand-mark" aria-hidden="true">
-              <svg viewBox="0 0 32 32" fill="none">
-                <path d="M8 5.5h16a3 3 0 0 1 3 3v14a2 2 0 0 1-2 2h-1v2h-3v-2h-8v2h-3v-2H9a2 2 0 0 1-2-2v-14a3 3 0 0 1 3-3Z" fill="currentColor" />
-                <path d="M10 8.5h12a2 2 0 0 1 2 2v6H8v-6a2 2 0 0 1 2-2Z" fill="#164e46" />
-                <path d="M10 19.5h3m6 0h3" stroke="#164e46" strokeWidth="2" strokeLinecap="round" />
-                <circle cx="11" cy="23" r="1" fill="#164e46" />
-                <circle cx="21" cy="23" r="1" fill="#164e46" />
-              </svg>
-            </span>
             <div>
-            <h1>BusTracker</h1>
+              <h1>¡Bienvenido, {userName}!</h1>
               <p>Tu viaje, a tiempo</p>
             </div>
           </div>
-          <button className="account-button" onClick={() => setActiveTab('login')}>
-            {session ? 'Mi cuenta' : 'Ingresar'}
-          </button>
+          <div className="header-actions">
+            <button
+              type="button"
+              className="name-edit"
+              onClick={() => {
+                setNameInput(userName)
+                setShowWelcomeScreen(true)
+              }}
+              aria-label="Cambiar nombre"
+              title="Cambiar nombre"
+            >
+              Editar
+            </button>
+            <button
+              type="button"
+              className="theme-toggle"
+              role="switch"
+              aria-checked={isDarkMode}
+              aria-label={isDarkMode ? 'Activar modo claro' : 'Activar modo oscuro'}
+              onClick={toggleDarkMode}
+            >
+              <span aria-hidden="true">{isDarkMode ? '☀' : '☾'}</span>
+            </button>
+          </div>
         </header>
 
-        {activeTab === 'horarios' ? (
           <main className="schedule-main">
             <section className="welcome-block">
               <p className="eyebrow">LÍNEA 520 · SAN RAFAEL / MONTE COMÁN</p>
-              <h2>¿Dónde lo esperás?</h2>
+              <h2>¿A dónde vamos hoy?</h2>
               <p>Elegí un sentido y una parada para planificar tu viaje.</p>
             </section>
 
@@ -637,39 +689,34 @@ export default function App() {
               Horarios programados de {serviceDaysLabel.toLowerCase()}. Pueden variar por tránsito o demoras; no es ubicación en vivo.
             </p>
 
-            <section className="feedback-card" aria-labelledby="feedback-heading">
+            <section className="feedback-card survey-card" aria-labelledby="survey-heading">
               <div className="feedback-heading">
                 <span className="feedback-icon" aria-hidden="true">✳</span>
                 <div>
-                  <h2 id="feedback-heading">¿Cómo podemos mejorar?</h2>
-                  <p>Tu opinión nos ayuda a mejorar BusTracker.</p>
+                  <h2 id="survey-heading">Encuesta de Google</h2>
+                  <p>Este enlace es provisorio hasta crear el formulario.</p>
                 </div>
               </div>
-              <label className="visually-hidden" htmlFor="feedback-message">
-                Escribe tu comentario
-              </label>
-              <textarea
-                id="feedback-message"
-                value={feedback}
-                onChange={(event) => setFeedback(event.target.value)}
-                maxLength={500}
-                placeholder="Cuéntanos qué te pareció o qué te gustaría mejorar…"
-                rows={3}
-              />
               <div className="feedback-actions">
-                <span>{feedback.length}/500 · Se enviará por WhatsApp</span>
+                <span>
+                  {IS_PROVISIONAL_GOOGLE_FORM_URL
+                    ? 'Enlace provisorio; lo cambiaremos al crear la encuesta.'
+                    : HAS_GOOGLE_FORM_URL
+                      ? 'Este enlace abre la encuesta de Google.'
+                      : 'Configura un enlace válido de Google Forms.'}
+                </span>
                 <a
-                  href={feedbackUrl}
+                  href={HAS_GOOGLE_FORM_URL ? GOOGLE_FORM_URL : undefined}
                   target="_blank"
-                  rel="noreferrer"
-                  aria-disabled={!feedbackUrl}
+                  rel="noopener noreferrer"
+                  aria-disabled={!HAS_GOOGLE_FORM_URL}
                   onClick={(event) => {
-                    if (!feedbackUrl) event.preventDefault()
+                    if (!HAS_GOOGLE_FORM_URL) event.preventDefault()
                   }}
-                  className={!feedbackUrl ? 'feedback-submit is-disabled' : 'feedback-submit'}
+                  className={!HAS_GOOGLE_FORM_URL ? 'feedback-submit is-disabled' : 'feedback-submit'}
                 >
                   <span aria-hidden="true">↗</span>
-                  Enviar comentario
+                  {IS_PROVISIONAL_GOOGLE_FORM_URL ? 'Abrir Google Forms' : 'Responder encuesta'}
                 </a>
               </div>
             </section>
@@ -679,56 +726,8 @@ export default function App() {
               2026
             </footer>
           </main>
-        ) : (
-          <main className="account-main">
-            {session ? (
-              <div className="account-card">
-                <div className="account-check">✓</div>
-                <div>
-                  <h2>Sesión iniciada</h2>
-                  <p>{session.user.email}</p>
-                </div>
-                <button onClick={handleLogout}>Cerrar sesión</button>
-              </div>
-            ) : (
-              <form onSubmit={handleLogin} className="account-card login-form">
-                <div>
-                  <h2>Iniciar sesión</h2>
-                  <p>Ingresa para guardar tus paradas favoritas.</p>
-                  {import.meta.env.DEV && (
-                    <p className="demo-hint">Modo demo local: usa las credenciales precargadas.</p>
-                  )}
-                </div>
-                <label htmlFor="login-email">Email</label>
-                <input id="login-email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" />
-                <label htmlFor="login-password">Contraseña</label>
-                <input id="login-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required autoComplete="current-password" />
-                <button type="submit" disabled={loading}>{loading ? 'Ingresando…' : 'Entrar'}</button>
-              </form>
-            )}
-          </main>
+          </>
         )}
-
-        <nav className="bottom-nav" aria-label="Navegación principal">
-          <button
-            type="button"
-            aria-current={activeTab === 'horarios' ? 'page' : undefined}
-            onClick={() => setActiveTab('horarios')}
-            className={activeTab === 'horarios' ? 'nav-active' : ''}
-          >
-            <span aria-hidden="true">◷</span>
-            Horarios
-          </button>
-          <button
-            type="button"
-            aria-current={activeTab === 'login' ? 'page' : undefined}
-            onClick={() => setActiveTab('login')}
-            className={activeTab === 'login' ? 'nav-active' : ''}
-          >
-            <span aria-hidden="true">○</span>
-            {session ? 'Mi cuenta' : 'Ingresar'}
-          </button>
-        </nav>
       </div>
     </div>
   )

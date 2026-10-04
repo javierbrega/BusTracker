@@ -151,7 +151,7 @@ input:focus-visible {
   flex: 1;
   flex-direction: column;
   gap: 17px;
-  padding: 22px 18px calc(100px + env(safe-area-inset-bottom));
+  padding: 22px 18px max(24px, env(safe-area-inset-bottom));
 }
 
 .welcome-block {
@@ -851,30 +851,6 @@ details[open] .details-chevron {
   font-size: 9px;
 }
 
-.feedback-card textarea {
-  width: 100%;
-  min-height: 76px;
-  resize: vertical;
-  border: 1px solid #e4eae6;
-  border-radius: 11px;
-  background: #fbfcfb;
-  padding: 10px 11px;
-  color: #2b4145;
-  font-size: 10px;
-  line-height: 1.5;
-  outline: none;
-  transition: border-color 160ms ease, box-shadow 160ms ease;
-}
-
-.feedback-card textarea::placeholder {
-  color: #a3adaa;
-}
-
-.feedback-card textarea:focus {
-  border-color: #6eae91;
-  box-shadow: 0 0 0 3px rgba(58, 151, 116, 0.1);
-}
-
 .feedback-actions {
   display: flex;
   align-items: center;
@@ -914,16 +890,6 @@ details[open] .details-chevron {
   cursor: not-allowed;
 }
 
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  clip-path: inset(50%);
-}
-
 .app-credit {
   display: flex;
   flex-wrap: wrap;
@@ -942,125 +908,6 @@ details[open] .details-chevron {
   font-weight: 700;
 }
 
-.bottom-nav {
-  position: fixed;
-  z-index: 5;
-  bottom: 0;
-  left: 50%;
-  display: grid;
-  width: min(100%, 470px);
-  grid-template-columns: 1fr 1fr;
-  gap: 7px;
-  border-top: 1px solid #e7ece9;
-  background: rgba(255, 255, 255, 0.94);
-  padding: 9px 16px calc(9px + env(safe-area-inset-bottom));
-  backdrop-filter: blur(16px);
-  transform: translateX(-50%);
-}
-
-.bottom-nav button {
-  display: flex;
-  min-height: 42px;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  border: 0;
-  border-radius: 12px;
-  background: transparent;
-  color: #899694;
-  font-size: 10px;
-  font-weight: 650;
-  transition: background 160ms ease, color 160ms ease;
-}
-
-.bottom-nav button > span {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.bottom-nav button.nav-active {
-  background: #e9f4ed;
-  color: #176448;
-}
-
-.account-main {
-  display: grid;
-  flex: 1;
-  align-content: center;
-  padding: 22px 18px calc(100px + env(safe-area-inset-bottom));
-}
-
-.account-card {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  border: 1px solid #e3e9e6;
-  border-radius: 20px;
-  background: #fff;
-  padding: 22px;
-  text-align: center;
-  box-shadow: 0 10px 28px rgba(32, 62, 55, 0.06);
-}
-
-.account-card h2 {
-  margin: 0;
-  color: #234044;
-  font-size: 17px;
-}
-
-.account-card p {
-  margin: 6px 0 0;
-  color: #788986;
-  font-size: 11px;
-}
-
-.account-check {
-  display: grid;
-  width: 48px;
-  height: 48px;
-  place-items: center;
-  align-self: center;
-  border-radius: 50%;
-  background: #e1f4e8;
-  color: #21805c;
-  font-size: 20px;
-}
-
-.account-card button {
-  min-height: 43px;
-  border: 0;
-  border-radius: 12px;
-  background: #164e46;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.login-form {
-  text-align: left;
-}
-
-.login-form label {
-  margin-bottom: -9px;
-  color: #617572;
-  font-size: 10px;
-  font-weight: 700;
-}
-
-.login-form input {
-  min-height: 43px;
-  border: 1px solid #e1e8e4;
-  border-radius: 11px;
-  background: #fbfcfb;
-  padding: 0 12px;
-  color: #263e41;
-  font-size: 12px;
-}
-
-.login-form .demo-hint {
-  color: #27805f;
-}
-
 @media (min-width: 600px) {
   .app-background {
     padding: 24px 0;
@@ -1076,11 +923,6 @@ details[open] .details-chevron {
     border-radius: 24px 24px 0 0;
   }
 
-  .bottom-nav {
-    bottom: 24px;
-    border: 1px solid #e7ece9;
-    border-radius: 0 0 24px 24px;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1415,29 +1257,13 @@ input:focus-visible {
   color: var(--color-blue);
 }
 
-.feedback-submit,
-.account-card button {
+.feedback-submit {
   background: var(--color-blue);
   transition: background 180ms ease, transform 180ms ease;
 }
 
 .feedback-submit:hover {
   background: #3455d0;
-}
-
-.feedback-card textarea:focus {
-  border-color: #8598f0;
-  box-shadow: 0 0 0 3px rgba(70, 104, 232, 0.1);
-}
-
-.bottom-nav button.nav-active {
-  background: #eef1ff;
-  color: #3d58bf;
-}
-
-.account-check {
-  background: #fff5d4;
-  color: #a47b11;
 }
 
 @keyframes card-arrive {
@@ -1469,5 +1295,352 @@ input:focus-visible {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
+  }
+}
+
+.welcome-frame {
+  background: #17191d;
+}
+
+.welcome-screen {
+  position: relative;
+  display: flex;
+  min-height: 100vh;
+  min-height: 100dvh;
+  flex: 1;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow: hidden;
+  background-image:
+    linear-gradient(180deg, rgba(10, 11, 13, 0.18) 0%, rgba(10, 11, 13, 0.05) 30%, rgba(10, 11, 13, 0.88) 68%, #101114 100%),
+    url('/bus-hero.png');
+  background-position: center;
+  background-size: cover;
+  padding: max(18px, env(safe-area-inset-top)) 20px max(26px, env(safe-area-inset-bottom));
+  color: #fff;
+}
+
+.welcome-topline,
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.welcome-topline > span {
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 30px;
+  background: rgba(15, 17, 18, 0.3);
+  padding: 8px 11px;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  backdrop-filter: blur(12px);
+}
+
+.theme-toggle {
+  display: grid;
+  width: 39px;
+  height: 39px;
+  flex: 0 0 39px;
+  place-items: center;
+  border: 1px solid #e3e5e8;
+  border-radius: 50%;
+  background: #fff;
+  color: #282b30;
+  cursor: pointer;
+  font-size: 18px;
+  transition: transform 160ms ease, background 160ms ease;
+}
+
+.theme-toggle:hover {
+  transform: translateY(-1px);
+}
+
+.welcome-topline .theme-toggle {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(15, 17, 18, 0.35);
+  color: #fff;
+  backdrop-filter: blur(12px);
+}
+
+.welcome-content {
+  width: 100%;
+  max-width: 390px;
+  align-self: center;
+  animation: card-arrive 420ms cubic-bezier(0.2, 0.75, 0.25, 1) both;
+}
+
+.welcome-kicker {
+  margin: 0 0 11px;
+  color: #ffb15e;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+}
+
+.welcome-content h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(39px, 10vw, 52px);
+  font-weight: 760;
+  letter-spacing: -0.07em;
+  line-height: 0.99;
+}
+
+.welcome-description {
+  max-width: 310px;
+  margin: 12px 0 20px;
+  color: rgba(255, 255, 255, 0.77);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.welcome-form {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.welcome-form label {
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.welcome-form input {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 13px;
+  background: rgba(20, 21, 23, 0.72);
+  padding: 0 14px;
+  color: #fff;
+  font-size: 13px;
+  outline: none;
+  backdrop-filter: blur(12px);
+}
+
+.welcome-form input::placeholder {
+  color: rgba(255, 255, 255, 0.54);
+}
+
+.welcome-form input:focus {
+  border-color: #ffad60;
+  box-shadow: 0 0 0 3px rgba(255, 142, 67, 0.2);
+}
+
+.welcome-form button {
+  display: flex;
+  min-height: 49px;
+  align-items: center;
+  justify-content: space-between;
+  border: 0;
+  border-radius: 13px;
+  background: #ee7338;
+  padding: 0 16px;
+  color: #fff;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 750;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.welcome-form button:hover {
+  transform: translateY(-1px);
+  background: #dc6129;
+}
+
+.welcome-form button span {
+  font-size: 19px;
+}
+
+.app-header .brand-lockup h1 {
+  color: var(--color-ink);
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.app-header .brand-lockup p {
+  margin-top: 3px;
+}
+
+.header-actions {
+  justify-content: flex-end;
+}
+
+.name-edit {
+  border: 0;
+  background: transparent;
+  padding: 7px 2px;
+  color: #737985;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.name-edit:hover {
+  color: var(--color-blue);
+}
+
+.survey-card .feedback-actions {
+  align-items: center;
+}
+
+.survey-card .feedback-actions > span {
+  max-width: 190px;
+  line-height: 1.4;
+}
+
+.app-background[data-theme='dark'] {
+  background: #0e1014;
+}
+
+.app-background[data-theme='dark'] .app-frame {
+  background: #17191e;
+  color: #e8eaf0;
+}
+
+.app-background[data-theme='dark'] .app-header {
+  border-color: #2c3038;
+  background: rgba(25, 27, 33, 0.96);
+}
+
+.app-background[data-theme='dark'] .app-header .brand-lockup h1,
+.app-background[data-theme='dark'] .welcome-block h2,
+.app-background[data-theme='dark'] .section-heading h2,
+.app-background[data-theme='dark'] .feedback-heading h2 {
+  color: #f0f1f4;
+}
+
+.app-background[data-theme='dark'] .app-header .brand-lockup p,
+.app-background[data-theme='dark'] .welcome-block > p:last-child {
+  color: #a0a5af;
+}
+
+.app-background[data-theme='dark'] .route-option,
+.app-background[data-theme='dark'] .select-wrap select,
+.app-background[data-theme='dark'] .route-preview,
+.app-background[data-theme='dark'] .more-services,
+.app-background[data-theme='dark'] .full-itinerary,
+.app-background[data-theme='dark'] .feedback-card,
+.app-background[data-theme='dark'] .state-card,
+.app-background[data-theme='dark'] .favorite-chip {
+  border-color: #333741;
+  background-color: #22252c;
+  color: #e2e4e9;
+}
+
+.app-background[data-theme='dark'] .route-option.is-selected {
+  border-color: var(--color-blue);
+  background: var(--color-blue);
+}
+
+.app-background[data-theme='dark'] .route-option.is-selected .route-badge {
+  background: var(--color-yellow);
+  color: var(--color-ink);
+}
+
+.app-background[data-theme='dark'] .route-option.is-selected .route-names strong {
+  color: #fff;
+}
+
+.app-background[data-theme='dark'] .route-option.is-selected .route-names > span,
+.app-background[data-theme='dark'] .route-option.is-selected .route-arrow {
+  color: #e4e8ff;
+}
+
+.app-background[data-theme='dark'] .route-names strong,
+.app-background[data-theme='dark'] .select-wrap select,
+.app-background[data-theme='dark'] .track-copy strong,
+.app-background[data-theme='dark'] .more-services summary,
+.app-background[data-theme='dark'] .full-itinerary summary,
+.app-background[data-theme='dark'] .full-itinerary li,
+.app-background[data-theme='dark'] .favorite-chip,
+.app-background[data-theme='dark'] .other-time {
+  color: #e2e4e9;
+}
+
+.app-background[data-theme='dark'] .route-names > span,
+.app-background[data-theme='dark'] .track-copy > span,
+.app-background[data-theme='dark'] .track-stop time,
+.app-background[data-theme='dark'] .other-service,
+.app-background[data-theme='dark'] .estimate-note,
+.app-background[data-theme='dark'] .feedback-heading p,
+.app-background[data-theme='dark'] .feedback-actions > span {
+  color: #a0a5af;
+}
+
+.app-background[data-theme='dark'] .route-badge,
+.app-background[data-theme='dark'] .stops-count,
+.app-background[data-theme='dark'] .more-count,
+.app-background[data-theme='dark'] .itinerary-marker {
+  background: #30343d;
+  color: #d4d7df;
+}
+
+.app-background[data-theme='dark'] .select-wrap select {
+  border-color: #3b404b;
+}
+
+.app-background[data-theme='dark'] .track-line,
+.app-background[data-theme='dark'] .full-itinerary li,
+.app-background[data-theme='dark'] .other-services-list {
+  border-color: #363a44;
+  background-color: #22252c;
+}
+
+.app-background[data-theme='dark'] .selected-track-stop {
+  background: #2b3040;
+}
+
+.app-background[data-theme='dark'] .track-dot {
+  border-color: #474c58;
+  background: #22252c;
+}
+
+.app-background[data-theme='dark'] .selected-dot {
+  background: var(--color-blue);
+}
+
+.app-background[data-theme='dark'] .destination-track-stop .track-dot {
+  background: #3a3320;
+}
+
+.app-background[data-theme='dark'] .favorite-chip.is-current {
+  border-color: #515e9c;
+  background: #303955;
+  color: #e5e9ff;
+}
+
+.app-background[data-theme='dark'] .favorite-toggle,
+.app-background[data-theme='dark'] .name-edit {
+  color: #c0c4ce;
+}
+
+.app-background[data-theme='dark'] .feedback-icon {
+  background: #303955;
+}
+
+.app-background[data-theme='dark'] .feedback-submit.is-disabled {
+  background: #363a43;
+  color: #a0a5af;
+}
+
+.app-background[data-theme='dark'] .app-credit {
+  color: #858b97;
+}
+
+.app-background[data-theme='dark'] .app-credit strong {
+  color: #b2b7c2;
+}
+
+@media (min-width: 600px) {
+  .welcome-screen {
+    min-height: calc(100vh - 48px);
+    min-height: calc(100dvh - 48px);
+    border-radius: 24px;
   }
 }
