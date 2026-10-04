@@ -969,7 +969,7 @@ export default function App() {
                 <span className="feedback-icon" aria-hidden="true">✳</span>
                 <div>
                   <h2 id="survey-heading">Encuesta de Google</h2>
-                  <p>Este enlace es provisorio hasta crear el formulario.</p>
+                  <p>Ayudanos a mejorar BusTracker respondiendo esta encuesta.</p>
                 </div>
               </div>
               <div className="feedback-actions">
