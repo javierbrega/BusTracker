@@ -26,6 +26,12 @@ Sin las variables de Supabase, la aplicación usa horarios de demostración. Nun
 
 Al ingresar por primera vez, la app solicita un nombre y lo guarda localmente en ese dispositivo. El selector de tema claro/oscuro también guarda su preferencia. Cuando esté listo el formulario, reemplaza `VITE_GOOGLE_FORM_URL` por su enlace público de Google Forms (dominios `docs.google.com` o `forms.gle`) y vuelve a desplegar.
 
+## Mapa estimado y ubicación cercana
+
+El enlace **Ver mapa** abre una vista propia de los sentidos 520A y 520B. El trazado es orientativo: se calculó sobre calles de OpenStreetMap pasando por San Rafael, Goudge, La Llave y Monte Comán, y no es un trazado oficial ni muestra colectivos en vivo. Las recomendaciones de paradas cercanas quedan pendientes hasta disponer de coordenadas verificadas para cada parada.
+
+El botón **Cerca de mí** solo solicita permiso de ubicación cuando la persona lo pulsa. La posición se usa en el navegador para comparar con la línea estimada dentro de 500 m y centrar el mapa; BusTracker no la guarda. Al centrar el mapa, OpenStreetMap recibe solicitudes de teselas para el área visible. El mapa atribuye los datos a [OpenStreetMap contributors](https://www.openstreetmap.org/copyright), disponibles bajo ODbL.
+
 ## Verificación de producción
 
 ```powershell

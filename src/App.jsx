@@ -1,5 +1,7 @@
-import { useEffect, useState } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
+
+const RouteMap = lazy(() => import('./components/RouteMap'))
 
 const NAME_STORAGE_KEY = 'bustracker:user-name'
 const THEME_STORAGE_KEY = 'bustracker:dark-mode'
@@ -176,7 +178,14 @@ export default function App() {
   const [nameInput, setNameInput] = useState(userName)
   const [showWelcomeScreen, setShowWelcomeScreen] = useState(!userName)
   const [isDarkMode, setIsDarkMode] = useState(loadDarkMode)
-  const [selectedRoute, setSelectedRoute] = useState('520B')
+  const [isMapPage] = useState(
+    () => new URLSearchParams(window.location.search).get('vista') === 'mapa',
+  )
+  const [selectedRoute, setSelectedRoute] = useState(() =>
+    new URLSearchParams(window.location.search).get('route') === '520A'
+      ? '520A'
+      : '520B',
+  )
   const [selectedStopName, setSelectedStopName] = useState('')
   const [selectedDestinationName, setSelectedDestinationName] = useState('')
   const [favorites, setFavorites] = useState(loadFavoriteRoutes)
@@ -192,6 +201,8 @@ export default function App() {
   }, [])
 
   useEffect(() => {
+    if (isMapPage) return undefined
+
     let cancelled = false
     const loadTrips = async () => {
       if (!supabase) {
@@ -237,7 +248,7 @@ export default function App() {
     return () => {
       cancelled = true
     }
-  }, [refreshKey, selectedRoute])
+  }, [isMapPage, refreshKey, selectedRoute])
 
   const routeStops = [...new Map(
     trips
@@ -340,9 +351,22 @@ export default function App() {
   }
 
   return (
-    <div className="app-background" data-theme={isDarkMode ? 'dark' : 'light'}>
-      <div className={`app-frame ${showWelcomeScreen ? 'welcome-frame' : ''}`}>
-        {showWelcomeScreen ? (
+    <div
+      className={`app-background ${isMapPage ? 'map-background' : ''}`}
+      data-theme={isDarkMode ? 'dark' : 'light'}
+    >
+      <div
+        className={`app-frame ${isMapPage ? 'map-frame' : ''} ${showWelcomeScreen ? 'welcome-frame' : ''}`}
+      >
+        {isMapPage ? (
+          <Suspense fallback={<div className="map-loading">Cargando mapa…</div>}>
+            <RouteMap
+              selectedRoute={selectedRoute}
+              onSelectRoute={setSelectedRoute}
+              isDarkMode={isDarkMode}
+            />
+          </Suspense>
+        ) : showWelcomeScreen ? (
           <main className="welcome-screen">
             <div className="welcome-topline">
               <span>520 · SAN RAFAEL / MONTE COMÁN</span>
@@ -604,7 +628,18 @@ export default function App() {
                       <p className="eyebrow">EL RECORRIDO</p>
                       <h2>Tu viaje, de un vistazo</h2>
                     </div>
-                    <span className="stops-count">{nextStopTimes.length} paradas</span>
+                    <div className="route-preview-actions">
+                      <span className="stops-count">{nextStopTimes.length} paradas</span>
+                      <a
+                        className="route-map-link"
+                        href={`/?vista=mapa&route=${selectedRoute}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <span aria-hidden="true">⌖</span>
+                        Ver mapa
+                      </a>
+                    </div>
                   </div>
                   <div className="route-track">
                     <div className="track-line" aria-hidden="true">
